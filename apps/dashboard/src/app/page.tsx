@@ -2,7 +2,7 @@ export default function OverviewPage() {
   return (
     <section>
       <h1 style={{ fontFamily: "Georgia, serif", fontStyle: "italic" }}>
-        Executive Overview
+        Admin Overview
       </h1>
       <p className="muted">
         Web-first command center for orders, finance, riders, and escalations.

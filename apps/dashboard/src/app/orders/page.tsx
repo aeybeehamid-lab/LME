@@ -122,7 +122,7 @@ export default function OrdersPage() {
   return (
     <section>
       <h1>Orders</h1>
-      <p className="muted">Create and manage orders from the executive dashboard.</p>
+      <p className="muted">Create and manage orders from the admin dashboard.</p>
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3>Create Order</h3>

@@ -15,5 +15,6 @@ export const config = {
     process.env.DATABASE_URL ??
     "postgresql://postgres:postgres@localhost:5432/lme",
   jwtSecret: process.env.JWT_SECRET ?? "dev-only-change-me",
-  paystackSecretKey: process.env.PAYSTACK_SECRET_KEY ?? ""
+  paystackSecretKey: process.env.PAYSTACK_SECRET_KEY ?? "",
+  orderAutomationIntervalMs: Number(process.env.ORDER_AUTOMATION_INTERVAL_MS ?? "60000")
 };

@@ -27,13 +27,13 @@ export async function apiFetch<T>(
   return data as T;
 }
 
-export async function devExecutiveLogin(phone: string) {
+export async function devAdminLogin(phone: string) {
   return apiFetch<{ user: unknown; token: string }>("/auth/dev-login", {
     method: "POST",
     body: JSON.stringify({
       phone,
       role: "executive",
-      name: "LME Executive"
+      name: "LME Admin"
     })
   });
 }

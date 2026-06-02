@@ -11,7 +11,7 @@ const links = [
 export function DashboardNav() {
   return (
     <nav className="nav">
-      <strong style={{ marginRight: 12 }}>LME Executive</strong>
+      <strong style={{ marginRight: 12 }}>LME Admin</strong>
       {links.map((link) => (
         <Link key={link.href} href={link.href}>
           {link.label}

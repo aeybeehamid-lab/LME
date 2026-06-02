@@ -3,7 +3,7 @@ import { DashboardNav } from "../components/DashboardNav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LME Executive Dashboard",
+  title: "LME Admin Dashboard",
   description: "Life Made Easy logistics operations dashboard"
 };
 

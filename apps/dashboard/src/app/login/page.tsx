@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { devExecutiveLogin } from "../../lib/api";
+import { devAdminLogin } from "../../lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,7 +15,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const result = await devExecutiveLogin(phone);
+      const result = await devAdminLogin(phone);
       localStorage.setItem("lme_token", result.token);
       router.push("/orders");
     } catch (err) {
@@ -27,7 +27,7 @@ export default function LoginPage() {
 
   return (
     <section className="card" style={{ maxWidth: 420 }}>
-      <h1>Executive Login</h1>
+      <h1>Admin Login</h1>
       <p className="muted">
         Dev login for Sprint 1. Firebase OTP will replace this in production.
       </p>
