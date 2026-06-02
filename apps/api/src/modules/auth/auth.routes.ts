@@ -1,8 +1,14 @@
 import { Router } from "express";
 import { z } from "zod";
 import { UserRole } from "@lme/types";
-import { findOrCreateDevUser, getUserById, signAccessToken } from "./auth.service";
+import {
+  findOrCreateDevUser,
+  getUserById,
+  listRiderDirectory,
+  signAccessToken
+} from "./auth.service";
 import { requireAuth, AuthenticatedRequest } from "../../middleware/auth";
+import { requireRoles } from "../../middleware/auth";
 import { config } from "../../config";
 import { AppError } from "../../middleware/errorHandler";
 
@@ -46,5 +52,19 @@ router.get("/me", requireAuth, async (req: AuthenticatedRequest, res, next) => {
     next(err);
   }
 });
+
+router.get(
+  "/riders",
+  requireAuth,
+  requireRoles("executive", "ops_assistant"),
+  async (_req, res, next) => {
+    try {
+      const riders = await listRiderDirectory();
+      res.json({ riders });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 export const authRoutes = router;

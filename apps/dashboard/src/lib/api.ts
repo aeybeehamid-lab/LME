@@ -93,6 +93,18 @@ export async function fetchAutomationStatus() {
   }>("/ops/automation-status");
 }
 
+export async function fetchRiders() {
+  return apiFetch<{
+    riders: Array<{
+      id: string;
+      name: string;
+      phone: string;
+      bikeId?: string;
+      isOnline: boolean;
+    }>;
+  }>("/auth/riders");
+}
+
 export async function fetchOrderEvents(orderId: string) {
   return apiFetch<{
     events: Array<{

@@ -6,6 +6,7 @@ import {
   fetchAutomationStatus,
   fetchOrderEvents,
   fetchOrders,
+  fetchRiders,
   updateOrderStatus
 } from "../../lib/api";
 
@@ -69,6 +70,9 @@ export default function OrdersPage() {
   const [eventOrderId, setEventOrderId] = useState<string>("");
   const [events, setEvents] = useState<OrderEvent[]>([]);
   const [riderAssignment, setRiderAssignment] = useState<Record<string, string>>({});
+  const [riders, setRiders] = useState<Array<{ id: string; name: string; isOnline: boolean }>>(
+    []
+  );
 
   async function loadOrders(filter = statusFilter) {
     setLoading(true);
@@ -88,6 +92,17 @@ export default function OrdersPage() {
     fetchAutomationStatus()
       .then((data) => setAutomation(data.automation))
       .catch(() => setAutomation(null));
+    fetchRiders()
+      .then((data) =>
+        setRiders(
+          data.riders.map((rider) => ({
+            id: rider.id,
+            name: rider.name,
+            isOnline: rider.isOnline
+          }))
+        )
+      )
+      .catch(() => setRiders([]));
   }, []);
 
   const orderCount = useMemo(() => orders.length, [orders.length]);
@@ -171,6 +186,23 @@ export default function OrdersPage() {
     toStatus: "rider_assigned" | "refunded" | "cancelled",
     reason: string
   ) {
+    if (toStatus === "rider_assigned" && !riderAssignment[orderId]) {
+      setError("Select a rider before assigning escalated order.");
+      return;
+    }
+    if (toStatus === "refunded") {
+      const confirmed = window.confirm(
+        "Confirm force refund? This action should only be used for verified escalations."
+      );
+      if (!confirmed) return;
+    }
+    if (toStatus === "cancelled") {
+      const confirmed = window.confirm(
+        "Confirm cancel order? This may affect customer experience and revenue."
+      );
+      if (!confirmed) return;
+    }
+
     setError("");
     setStatusMessage("");
     try {
@@ -363,8 +395,7 @@ export default function OrdersPage() {
                 <td>
                   {order.status === "escalated" ? (
                     <div style={{ display: "grid", gap: 6 }}>
-                      <input
-                        placeholder="Rider UUID for assign"
+                      <select
                         value={riderAssignment[order.id] ?? ""}
                         onChange={(event) =>
                           setRiderAssignment((prev) => ({
@@ -372,7 +403,14 @@ export default function OrdersPage() {
                             [order.id]: event.target.value
                           }))
                         }
-                      />
+                      >
+                        <option value="">Select rider</option>
+                        {riders.map((rider) => (
+                          <option key={rider.id} value={rider.id}>
+                            {rider.name} {rider.isOnline ? "(online)" : "(offline)"}
+                          </option>
+                        ))}
+                      </select>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button
                           className="btn"

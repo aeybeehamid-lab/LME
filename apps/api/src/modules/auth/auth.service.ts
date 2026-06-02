@@ -11,6 +11,14 @@ interface DbUser {
   name: string | null;
 }
 
+interface DbRiderDirectoryUser {
+  id: string;
+  name: string | null;
+  phone: string;
+  bike_id: string | null;
+  is_online: boolean;
+}
+
 export async function findOrCreateDevUser(
   phone: string,
   role: UserRole,
@@ -67,4 +75,22 @@ export async function getUserById(id: string): Promise<AuthUser | null> {
     role: row.role,
     name: row.name ?? undefined
   };
+}
+
+export async function listRiderDirectory() {
+  const result = await pool.query<DbRiderDirectoryUser>(
+    `SELECT u.id, u.name, u.phone, r.bike_id, r.is_online
+     FROM users u
+     INNER JOIN riders r ON r.user_id = u.id
+     WHERE u.is_active = TRUE
+     ORDER BY COALESCE(u.name, u.phone) ASC`
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    name: row.name ?? "Unnamed rider",
+    phone: row.phone,
+    bikeId: row.bike_id ?? undefined,
+    isOnline: row.is_online
+  }));
 }
