@@ -38,8 +38,9 @@ export async function devAdminLogin(phone: string) {
   });
 }
 
-export async function fetchOrders() {
-  return apiFetch<{ orders: Array<Record<string, unknown>> }>("/orders");
+export async function fetchOrders(status?: string) {
+  const query = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
+  return apiFetch<{ orders: Array<Record<string, unknown>> }>(`/orders${query}`);
 }
 
 export async function createOrder(input: {
@@ -77,4 +78,16 @@ export async function updateOrderStatus(
     method: "PATCH",
     body: JSON.stringify(input)
   });
+}
+
+export async function fetchAutomationStatus() {
+  return apiFetch<{
+    automation: {
+      lastRunAt: string | null;
+      lastSuccessAt: string | null;
+      lastError: string | null;
+      escalatedInLastRun: number;
+      refundedInLastRun: number;
+    };
+  }>("/ops/automation-status");
 }

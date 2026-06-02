@@ -1,7 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { createOrder, fetchOrders, updateOrderStatus } from "../../lib/api";
+import {
+  createOrder,
+  fetchAutomationStatus,
+  fetchOrders,
+  updateOrderStatus
+} from "../../lib/api";
 
 type OrderRow = {
   id: string;
@@ -11,6 +16,8 @@ type OrderRow = {
   pickupAddress: string;
   dropoffAddress: string;
   itemDescription?: string;
+  escalatedAt?: string;
+  createdAt: string;
 };
 
 const statusOptions = [
@@ -40,12 +47,20 @@ export default function OrdersPage() {
     itemDescription: ""
   });
   const [statusChoice, setStatusChoice] = useState<Record<string, string>>({});
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [automation, setAutomation] = useState<{
+    lastRunAt: string | null;
+    lastSuccessAt: string | null;
+    lastError: string | null;
+    escalatedInLastRun: number;
+    refundedInLastRun: number;
+  } | null>(null);
 
-  async function loadOrders() {
+  async function loadOrders(filter = statusFilter) {
     setLoading(true);
     setError("");
     try {
-      const data = await fetchOrders();
+      const data = await fetchOrders(filter);
       setOrders(data.orders as OrderRow[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load orders");
@@ -55,7 +70,10 @@ export default function OrdersPage() {
   }
 
   useEffect(() => {
-    loadOrders();
+    loadOrders(statusFilter);
+    fetchAutomationStatus()
+      .then((data) => setAutomation(data.automation))
+      .catch(() => setAutomation(null));
   }, []);
 
   const orderCount = useMemo(() => orders.length, [orders.length]);
@@ -82,6 +100,8 @@ export default function OrdersPage() {
         itemDescription: ""
       }));
       await loadOrders();
+      const statusData = await fetchAutomationStatus();
+      setAutomation(statusData.automation);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create order");
     } finally {
@@ -114,6 +134,8 @@ export default function OrdersPage() {
       });
       setStatusMessage(`Order ${orderId.slice(0, 8)} updated to ${next}.`);
       await loadOrders();
+      const statusData = await fetchAutomationStatus();
+      setAutomation(statusData.automation);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
     }
@@ -123,6 +145,39 @@ export default function OrdersPage() {
     <section>
       <h1>Orders</h1>
       <p className="muted">Create and manage orders from the admin dashboard.</p>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3>Automation Health</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Tracks the background 10-minute escalation and 30-minute refund cycles.
+        </p>
+        {!automation ? (
+          <p className="muted">Automation status unavailable.</p>
+        ) : (
+          <div className="grid">
+            <div>
+              <strong>Last run</strong>
+              <p className="muted">{automation.lastRunAt ?? "N/A"}</p>
+            </div>
+            <div>
+              <strong>Last success</strong>
+              <p className="muted">{automation.lastSuccessAt ?? "N/A"}</p>
+            </div>
+            <div>
+              <strong>Escalated (last run)</strong>
+              <p className="muted">{automation.escalatedInLastRun}</p>
+            </div>
+            <div>
+              <strong>Refunded (last run)</strong>
+              <p className="muted">{automation.refundedInLastRun}</p>
+            </div>
+            <div>
+              <strong>Last error</strong>
+              <p className="muted">{automation.lastError ?? "None"}</p>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3>Create Order</h3>
@@ -200,9 +255,34 @@ export default function OrdersPage() {
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ margin: 0 }}>Orders ({orderCount})</h3>
-          <button className="btn" type="button" onClick={loadOrders} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select
+              value={statusFilter}
+              onChange={async (event) => {
+                const value = event.target.value;
+                setStatusFilter(value);
+                await loadOrders(value);
+              }}
+            >
+              <option value="all">all</option>
+              <option value="posted_to_job_board">posted_to_job_board</option>
+              <option value="escalated">escalated</option>
+              <option value="refunded">refunded</option>
+              <option value="delivered">delivered</option>
+            </select>
+            <button
+              className="btn"
+              type="button"
+              onClick={async () => {
+                await loadOrders(statusFilter);
+                const statusData = await fetchAutomationStatus();
+                setAutomation(statusData.automation);
+              }}
+              disabled={loading}
+            >
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
         </div>
         <table>
           <thead>
@@ -213,6 +293,7 @@ export default function OrdersPage() {
               <th>Fee (NGN)</th>
               <th>Pickup</th>
               <th>Dropoff</th>
+              <th>Automation</th>
               <th>Update Status</th>
             </tr>
           </thead>
@@ -225,6 +306,13 @@ export default function OrdersPage() {
                 <td>{(order.deliveryFeeKobo / 100).toLocaleString("en-NG")}</td>
                 <td>{order.pickupAddress}</td>
                 <td>{order.dropoffAddress}</td>
+                <td>
+                  {order.status === "escalated" || order.status === "refunded" ? (
+                    <span className="badge">Auto-handled</span>
+                  ) : (
+                    <span className="muted">-</span>
+                  )}
+                </td>
                 <td>
                   <div style={{ display: "flex", gap: 8 }}>
                     <select
@@ -252,7 +340,7 @@ export default function OrdersPage() {
             ))}
             {!orders.length && !error ? (
               <tr>
-                <td colSpan={7} className="muted">
+                <td colSpan={8} className="muted">
                   No orders yet. Use the create form above to add the first order.
                 </td>
               </tr>

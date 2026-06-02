@@ -15,12 +15,39 @@ type EscalatedOrder = {
   escalated_at: Date | null;
 };
 
+type AutomationStatus = {
+  lastRunAt: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  escalatedInLastRun: number;
+  refundedInLastRun: number;
+};
+
+const automationStatus: AutomationStatus = {
+  lastRunAt: null,
+  lastSuccessAt: null,
+  lastError: null,
+  escalatedInLastRun: 0,
+  refundedInLastRun: 0
+};
+
+export function getOrderAutomationStatus(): AutomationStatus {
+  return automationStatus;
+}
+
 export function startOrderAutomation(intervalMs = 60_000): NodeJS.Timeout {
   const run = async () => {
+    automationStatus.lastRunAt = new Date().toISOString();
     try {
-      await escalateUnacceptedOrders();
-      await refundStaleEscalatedOrders();
+      const escalatedInLastRun = await escalateUnacceptedOrders();
+      const refundedInLastRun = await refundStaleEscalatedOrders();
+      automationStatus.escalatedInLastRun = escalatedInLastRun;
+      automationStatus.refundedInLastRun = refundedInLastRun;
+      automationStatus.lastSuccessAt = new Date().toISOString();
+      automationStatus.lastError = null;
     } catch (error) {
+      automationStatus.lastError =
+        error instanceof Error ? error.message : "Unknown automation error";
       console.error("Order automation cycle failed", error);
     }
   };
@@ -37,6 +64,7 @@ async function escalateUnacceptedOrders() {
      WHERE status = 'posted_to_job_board'`
   );
 
+  let escalatedCount = 0;
   const now = Date.now();
   for (const order of result.rows) {
     if (order.rider_id) continue;
@@ -48,7 +76,9 @@ async function escalateUnacceptedOrders() {
       toStatus: "escalated",
       reason: "Auto-escalated after 10 minutes without rider acceptance"
     });
+    escalatedCount += 1;
   }
+  return escalatedCount;
 }
 
 async function refundStaleEscalatedOrders() {
@@ -58,6 +88,7 @@ async function refundStaleEscalatedOrders() {
      WHERE status = 'escalated'`
   );
 
+  let refundedCount = 0;
   const now = Date.now();
   for (const order of result.rows) {
     if (!order.escalated_at) continue;
@@ -76,6 +107,8 @@ async function refundStaleEscalatedOrders() {
        WHERE order_id = $1 AND status IN ('pending', 'success')`,
       [order.id]
     );
+    refundedCount += 1;
   }
+  return refundedCount;
 }
 

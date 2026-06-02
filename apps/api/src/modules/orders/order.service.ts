@@ -38,6 +38,8 @@ function mapOrder(row: DbOrder) {
     pickupAddress: row.pickup_address,
     dropoffAddress: row.dropoff_address,
     itemDescription: row.item_description ?? undefined,
+    escalatedAt: row.escalated_at ? row.escalated_at.toISOString() : undefined,
+    deliveredAt: row.delivered_at ? row.delivered_at.toISOString() : undefined,
     riderCommissionKobo: riderCommissionKobo(fee),
     lmeRevenueKobo: lmeRevenueKobo(fee),
     createdAt: row.created_at.toISOString(),
