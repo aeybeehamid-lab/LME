@@ -9,6 +9,7 @@ import {
   fetchRiders,
   updateOrderStatus
 } from "../../lib/api";
+import { Toast } from "../../components/Toast";
 
 type OrderRow = {
   id: string;
@@ -51,6 +52,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [busyByOrderId, setBusyByOrderId] = useState<Record<string, boolean>>({});
   const [newOrder, setNewOrder] = useState({
     category: "gadgets",
     deliveryFeeNaira: 1200,
@@ -146,6 +148,7 @@ export default function OrdersPage() {
     }
     setError("");
     setStatusMessage("");
+    setBusyByOrderId((prev) => ({ ...prev, [orderId]: true }));
     try {
       await updateOrderStatus(orderId, {
         toStatus: next as
@@ -168,6 +171,8 @@ export default function OrdersPage() {
       setAutomation(statusData.automation);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
+    } finally {
+      setBusyByOrderId((prev) => ({ ...prev, [orderId]: false }));
     }
   }
 
@@ -205,6 +210,7 @@ export default function OrdersPage() {
 
     setError("");
     setStatusMessage("");
+    setBusyByOrderId((prev) => ({ ...prev, [orderId]: true }));
     try {
       await updateOrderStatus(orderId, {
         toStatus,
@@ -216,6 +222,8 @@ export default function OrdersPage() {
       await loadEvents(orderId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Quick action failed");
+    } finally {
+      setBusyByOrderId((prev) => ({ ...prev, [orderId]: false }));
     }
   }
 
@@ -327,8 +335,16 @@ export default function OrdersPage() {
         </form>
       </div>
 
-      {error ? <p style={{ color: "#ff8f8f" }}>{error}</p> : null}
-      {statusMessage ? <p style={{ color: "#8fffaa" }}>{statusMessage}</p> : null}
+      {error ? (
+        <Toast variant="error" onDismiss={() => setError("")}>
+          {error}
+        </Toast>
+      ) : null}
+      {statusMessage ? (
+        <Toast variant="success" onDismiss={() => setStatusMessage("")}>
+          {statusMessage}
+        </Toast>
+      ) : null}
 
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -403,6 +419,7 @@ export default function OrdersPage() {
                             [order.id]: event.target.value
                           }))
                         }
+                        disabled={Boolean(busyByOrderId[order.id])}
                       >
                         <option value="">Select rider</option>
                         {riders.map((rider) => (
@@ -422,8 +439,9 @@ export default function OrdersPage() {
                               "Assigned by admin from escalated queue"
                             )
                           }
+                          disabled={Boolean(busyByOrderId[order.id])}
                         >
-                          Assign
+                          {busyByOrderId[order.id] ? "Working..." : "Assign"}
                         </button>
                         <button
                           className="btn"
@@ -431,8 +449,9 @@ export default function OrdersPage() {
                           onClick={() =>
                             quickAction(order.id, "refunded", "Force refund from escalated queue")
                           }
+                          disabled={Boolean(busyByOrderId[order.id])}
                         >
-                          Refund
+                          {busyByOrderId[order.id] ? "Working..." : "Refund"}
                         </button>
                         <button
                           className="btn"
@@ -440,8 +459,9 @@ export default function OrdersPage() {
                           onClick={() =>
                             quickAction(order.id, "cancelled", "Cancelled from escalated queue")
                           }
+                          disabled={Boolean(busyByOrderId[order.id])}
                         >
-                          Cancel
+                          {busyByOrderId[order.id] ? "Working..." : "Cancel"}
                         </button>
                       </div>
                     </div>
@@ -459,6 +479,7 @@ export default function OrdersPage() {
                           [order.id]: event.target.value
                         }))
                       }
+                      disabled={Boolean(busyByOrderId[order.id])}
                     >
                       <option value="">Select</option>
                       {statusOptions.map((status) => (
@@ -467,10 +488,20 @@ export default function OrdersPage() {
                         </option>
                       ))}
                     </select>
-                    <button className="btn" type="button" onClick={() => onUpdateStatus(order.id)}>
-                      Update
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => onUpdateStatus(order.id)}
+                      disabled={Boolean(busyByOrderId[order.id])}
+                    >
+                      {busyByOrderId[order.id] ? "Updating..." : "Update"}
                     </button>
-                    <button className="btn" type="button" onClick={() => loadEvents(order.id)}>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => loadEvents(order.id)}
+                      disabled={Boolean(busyByOrderId[order.id])}
+                    >
                       Timeline
                     </button>
                   </div>

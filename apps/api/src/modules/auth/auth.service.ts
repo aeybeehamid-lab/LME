@@ -29,32 +29,52 @@ export async function findOrCreateDevUser(
     [phone]
   );
 
-  if (existing.rows[0]) {
-    return {
-      id: existing.rows[0].id,
-      phone: existing.rows[0].phone,
-      role: existing.rows[0].role,
-      name: existing.rows[0].name ?? undefined
-    };
+  let userRow: DbUser | undefined = existing.rows[0];
+
+  if (userRow) {
+    const shouldUpdateRole = userRow.role !== role;
+    const shouldUpdateName = Boolean(name && name.trim().length > 0 && userRow.name !== name);
+
+    if (shouldUpdateRole || shouldUpdateName) {
+      const updated = await pool.query<DbUser>(
+        `UPDATE users
+         SET role = $2,
+             name = COALESCE($3, name),
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, phone, role, name`,
+        [userRow.id, role, name ?? null]
+      );
+      userRow = updated.rows[0];
+    }
+  } else {
+    const inserted = await pool.query<DbUser>(
+      `INSERT INTO users (phone, role, name)
+       VALUES ($1, $2, $3)
+       RETURNING id, phone, role, name`,
+      [phone, role, name ?? null]
+    );
+    userRow = inserted.rows[0];
   }
 
-  const inserted = await pool.query<DbUser>(
-    `INSERT INTO users (phone, role, name)
-     VALUES ($1, $2, $3)
-     RETURNING id, phone, role, name`,
-    [phone, role, name ?? null]
-  );
-
-  const user = inserted.rows[0];
-  if (!user) {
+  if (!userRow) {
     throw new AppError(500, "Failed to create user.");
   }
 
+  if (role === "rider") {
+    await pool.query(
+      `INSERT INTO riders (user_id)
+       VALUES ($1)
+       ON CONFLICT (user_id) DO NOTHING`,
+      [userRow.id]
+    );
+  }
+
   return {
-    id: user.id,
-    phone: user.phone,
-    role: user.role,
-    name: user.name ?? undefined
+    id: userRow.id,
+    phone: userRow.phone,
+    role: userRow.role,
+    name: userRow.name ?? undefined
   };
 }
 

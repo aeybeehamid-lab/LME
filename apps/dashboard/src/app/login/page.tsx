@@ -3,17 +3,20 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { devAdminLogin } from "../../lib/api";
+import { Toast } from "../../components/Toast";
 
 export default function LoginPage() {
   const router = useRouter();
   const [phone, setPhone] = useState("+234");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("Use dev login while we build Sprint 1.");
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError("");
+    setInfo("");
     try {
       const result = await devAdminLogin(phone);
       localStorage.setItem("lme_token", result.token);
@@ -39,7 +42,16 @@ export default function LoginPage() {
           onChange={(e) => setPhone(e.target.value)}
           required
         />
-        {error ? <p style={{ color: "#ff8f8f" }}>{error}</p> : null}
+        {info ? (
+          <Toast variant="info" onDismiss={() => setInfo("")}>
+            {info}
+          </Toast>
+        ) : null}
+        {error ? (
+          <Toast variant="error" onDismiss={() => setError("")}>
+            {error}
+          </Toast>
+        ) : null}
         <button className="btn" type="submit" disabled={loading} style={{ marginTop: 16 }}>
           {loading ? "Signing in..." : "Sign in"}
         </button>
