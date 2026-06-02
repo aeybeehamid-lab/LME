@@ -105,6 +105,38 @@ export async function fetchRiders() {
   }>("/auth/riders");
 }
 
+export async function fetchRiderAdminList() {
+  return apiFetch<{
+    riders: Array<{
+      id: string;
+      name: string;
+      phone: string;
+      bikeId?: string;
+      isOnline: boolean;
+      isActive: boolean;
+      joinDate: string;
+      strikeCount: number;
+    }>;
+  }>("/riders");
+}
+
+export async function createRider(input: { phone: string; name: string; bikeId?: string }) {
+  return apiFetch<{ rider: Record<string, unknown> }>("/riders", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function updateRider(
+  riderUserId: string,
+  input: { bikeId?: string | null; isOnline?: boolean; isActive?: boolean; name?: string | null }
+) {
+  return apiFetch<{ rider: Record<string, unknown> }>(`/riders/${riderUserId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
 export async function fetchOrderEvents(orderId: string) {
   return apiFetch<{
     events: Array<{
