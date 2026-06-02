@@ -41,3 +41,40 @@ export async function devExecutiveLogin(phone: string) {
 export async function fetchOrders() {
   return apiFetch<{ orders: Array<Record<string, unknown>> }>("/orders");
 }
+
+export async function createOrder(input: {
+  category: "gadgets" | "food" | "grocery" | "laundry" | "other";
+  deliveryFeeKobo: number;
+  urgentMultiplier?: number;
+  pickupAddress: string;
+  dropoffAddress: string;
+  itemDescription?: string;
+}) {
+  return apiFetch<{ order: Record<string, unknown> }>("/orders", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function updateOrderStatus(
+  orderId: string,
+  input: {
+    toStatus:
+      | "payment_pending"
+      | "payment_confirmed"
+      | "posted_to_job_board"
+      | "rider_assigned"
+      | "picked_up"
+      | "en_route"
+      | "delivered"
+      | "escalated"
+      | "cancelled"
+      | "refunded";
+    reason?: string;
+  }
+) {
+  return apiFetch<{ order: Record<string, unknown> }>(`/orders/${orderId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
