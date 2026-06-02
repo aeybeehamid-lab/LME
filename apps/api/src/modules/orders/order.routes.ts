@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   createOrder,
+  getOrderEvents,
   getOrderById,
   listOrders,
   transitionOrderStatus
@@ -85,6 +86,19 @@ router.get("/:orderId", async (req, res, next) => {
     next(err);
   }
 });
+
+router.get(
+  "/:orderId/events",
+  requireRoles("executive", "ops_assistant"),
+  async (req, res, next) => {
+    try {
+      const events = await getOrderEvents(req.params.orderId);
+      res.json({ events });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 router.patch(
   "/:orderId/status",

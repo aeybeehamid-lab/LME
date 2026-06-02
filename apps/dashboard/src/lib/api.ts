@@ -72,6 +72,7 @@ export async function updateOrderStatus(
       | "cancelled"
       | "refunded";
     reason?: string;
+    riderId?: string;
   }
 ) {
   return apiFetch<{ order: Record<string, unknown> }>(`/orders/${orderId}/status`, {
@@ -90,4 +91,18 @@ export async function fetchAutomationStatus() {
       refundedInLastRun: number;
     };
   }>("/ops/automation-status");
+}
+
+export async function fetchOrderEvents(orderId: string) {
+  return apiFetch<{
+    events: Array<{
+      id: string;
+      orderId: string;
+      fromStatus?: string;
+      toStatus: string;
+      actorUserId?: string;
+      reason?: string;
+      createdAt: string;
+    }>;
+  }>(`/orders/${orderId}/events`);
 }

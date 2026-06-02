@@ -25,6 +25,16 @@ interface DbOrder {
   updated_at: Date;
 }
 
+interface DbOrderStatusEvent {
+  id: string;
+  order_id: string;
+  from_status: OrderStatus | null;
+  to_status: OrderStatus;
+  actor_user_id: string | null;
+  reason: string | null;
+  created_at: Date;
+}
+
 function mapOrder(row: DbOrder) {
   const fee = Number(row.delivery_fee_kobo);
   return {
@@ -117,6 +127,27 @@ export async function getOrderById(orderId: string) {
   const row = result.rows[0];
   if (!row) throw new AppError(404, "Order not found.", "NOT_FOUND");
   return mapOrder(row);
+}
+
+export async function getOrderEvents(orderId: string) {
+  const result = await pool.query<DbOrderStatusEvent>(
+    `SELECT id, order_id, from_status, to_status, actor_user_id, reason, created_at
+     FROM order_status_events
+     WHERE order_id = $1
+     ORDER BY created_at DESC
+     LIMIT 50`,
+    [orderId]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    orderId: row.order_id,
+    fromStatus: row.from_status ?? undefined,
+    toStatus: row.to_status,
+    actorUserId: row.actor_user_id ?? undefined,
+    reason: row.reason ?? undefined,
+    createdAt: row.created_at.toISOString()
+  }));
 }
 
 export async function transitionOrderStatus(input: {

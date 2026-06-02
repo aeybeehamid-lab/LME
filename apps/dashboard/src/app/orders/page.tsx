@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createOrder,
   fetchAutomationStatus,
+  fetchOrderEvents,
   fetchOrders,
   updateOrderStatus
 } from "../../lib/api";
@@ -17,6 +18,16 @@ type OrderRow = {
   dropoffAddress: string;
   itemDescription?: string;
   escalatedAt?: string;
+  createdAt: string;
+};
+
+type OrderEvent = {
+  id: string;
+  orderId: string;
+  fromStatus?: string;
+  toStatus: string;
+  actorUserId?: string;
+  reason?: string;
   createdAt: string;
 };
 
@@ -55,6 +66,9 @@ export default function OrdersPage() {
     escalatedInLastRun: number;
     refundedInLastRun: number;
   } | null>(null);
+  const [eventOrderId, setEventOrderId] = useState<string>("");
+  const [events, setEvents] = useState<OrderEvent[]>([]);
+  const [riderAssignment, setRiderAssignment] = useState<Record<string, string>>({});
 
   async function loadOrders(filter = statusFilter) {
     setLoading(true);
@@ -130,7 +144,8 @@ export default function OrdersPage() {
           | "escalated"
           | "cancelled"
           | "refunded",
-        reason: "Updated from dashboard"
+        reason: "Updated from dashboard",
+        riderId: riderAssignment[orderId] || undefined
       });
       setStatusMessage(`Order ${orderId.slice(0, 8)} updated to ${next}.`);
       await loadOrders();
@@ -138,6 +153,37 @@ export default function OrdersPage() {
       setAutomation(statusData.automation);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
+    }
+  }
+
+  async function loadEvents(orderId: string) {
+    try {
+      const data = await fetchOrderEvents(orderId);
+      setEventOrderId(orderId);
+      setEvents(data.events as OrderEvent[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load order events");
+    }
+  }
+
+  async function quickAction(
+    orderId: string,
+    toStatus: "rider_assigned" | "refunded" | "cancelled",
+    reason: string
+  ) {
+    setError("");
+    setStatusMessage("");
+    try {
+      await updateOrderStatus(orderId, {
+        toStatus,
+        reason,
+        riderId: toStatus === "rider_assigned" ? riderAssignment[orderId] || undefined : undefined
+      });
+      setStatusMessage(`Quick action applied: ${toStatus} for ${orderId.slice(0, 8)}.`);
+      await loadOrders(statusFilter);
+      await loadEvents(orderId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Quick action failed");
     }
   }
 
@@ -294,6 +340,7 @@ export default function OrdersPage() {
               <th>Pickup</th>
               <th>Dropoff</th>
               <th>Automation</th>
+              <th>Escalation Actions</th>
               <th>Update Status</th>
             </tr>
           </thead>
@@ -309,6 +356,57 @@ export default function OrdersPage() {
                 <td>
                   {order.status === "escalated" || order.status === "refunded" ? (
                     <span className="badge">Auto-handled</span>
+                  ) : (
+                    <span className="muted">-</span>
+                  )}
+                </td>
+                <td>
+                  {order.status === "escalated" ? (
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <input
+                        placeholder="Rider UUID for assign"
+                        value={riderAssignment[order.id] ?? ""}
+                        onChange={(event) =>
+                          setRiderAssignment((prev) => ({
+                            ...prev,
+                            [order.id]: event.target.value
+                          }))
+                        }
+                      />
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() =>
+                            quickAction(
+                              order.id,
+                              "rider_assigned",
+                              "Assigned by admin from escalated queue"
+                            )
+                          }
+                        >
+                          Assign
+                        </button>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() =>
+                            quickAction(order.id, "refunded", "Force refund from escalated queue")
+                          }
+                        >
+                          Refund
+                        </button>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() =>
+                            quickAction(order.id, "cancelled", "Cancelled from escalated queue")
+                          }
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <span className="muted">-</span>
                   )}
@@ -334,19 +432,52 @@ export default function OrdersPage() {
                     <button className="btn" type="button" onClick={() => onUpdateStatus(order.id)}>
                       Update
                     </button>
+                    <button className="btn" type="button" onClick={() => loadEvents(order.id)}>
+                      Timeline
+                    </button>
                   </div>
                 </td>
               </tr>
             ))}
             {!orders.length && !error ? (
               <tr>
-                <td colSpan={8} className="muted">
+                <td colSpan={9} className="muted">
                   No orders yet. Use the create form above to add the first order.
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3>Order Timeline {eventOrderId ? `(${eventOrderId.slice(0, 8)}...)` : ""}</h3>
+        {!events.length ? (
+          <p className="muted">Click Timeline on an order to view its audit trail.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Reason</th>
+                <th>Actor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <tr key={event.id}>
+                  <td>{event.createdAt}</td>
+                  <td>{event.fromStatus ?? "-"}</td>
+                  <td>{event.toStatus}</td>
+                  <td>{event.reason ?? "-"}</td>
+                  <td>{event.actorUserId?.slice(0, 8) ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </section>
   );
