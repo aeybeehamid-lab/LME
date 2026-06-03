@@ -141,6 +141,72 @@ export async function updateRider(
   });
 }
 
+export function formatNairaFromKobo(kobo: number): string {
+  return (kobo / 100).toLocaleString("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    minimumFractionDigits: 0
+  });
+}
+
+export async function fetchFinanceSummary() {
+  return apiFetch<{
+    summary: {
+      moneyInKobo: number;
+      riderCommissionsKobo: number;
+      refundedKobo: number;
+      netKobo: number;
+      lmeShareFromDeliveredKobo: number;
+      deliveredCount: number;
+      payments: { pending: number; success: number };
+      ordersByStatus: Record<string, number>;
+      activeOrders: number;
+    };
+  }>("/finance/summary");
+}
+
+export async function fetchFinanceTransactions(limit = 50) {
+  return apiFetch<{
+    transactions: Array<{
+      id: string;
+      orderId: string;
+      paystackReference: string;
+      amountKobo: number;
+      status: string;
+      createdAt: string;
+    }>;
+  }>(`/finance/transactions?limit=${limit}`);
+}
+
+export async function initializePayment(input: {
+  orderId: string;
+  amountKobo: number;
+  idempotencyKey: string;
+}) {
+  return apiFetch<{ payment: Record<string, unknown> }>("/payments/initialize", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function devConfirmPayment(orderId: string) {
+  return apiFetch<{ ok: boolean }>("/payments/dev-confirm", {
+    method: "POST",
+    body: JSON.stringify({ orderId })
+  });
+}
+
+export async function fetchRiderStats(riderUserId: string) {
+  return apiFetch<{
+    stats: {
+      riderUserId: string;
+      deliveryCount: number;
+      totalEarningsKobo: number;
+      totalDeliveryFeesKobo: number;
+    };
+  }>(`/finance/riders/${riderUserId}/stats`);
+}
+
 export async function fetchOrderEvents(orderId: string) {
   return apiFetch<{
     events: Array<{

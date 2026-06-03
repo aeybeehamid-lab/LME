@@ -1,7 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { createRider, fetchRiderAdminList, updateRider } from "../../lib/api";
+import {
+  createRider,
+  fetchRiderAdminList,
+  fetchRiderStats,
+  formatNairaFromKobo,
+  updateRider
+} from "../../lib/api";
 import { Toast } from "../../components/Toast";
 
 type RiderRow = {
@@ -23,6 +29,9 @@ export default function RidersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [busyByRiderId, setBusyByRiderId] = useState<Record<string, boolean>>({});
   const [newRider, setNewRider] = useState({ name: "", phone: "+234", bikeId: "" });
+  const [statsByRiderId, setStatsByRiderId] = useState<
+    Record<string, { deliveryCount: number; totalEarningsKobo: number }>
+  >({});
 
   const activeCount = useMemo(() => riders.filter((r) => r.isActive).length, [riders]);
 
@@ -89,6 +98,24 @@ export default function RidersPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update rider");
+    } finally {
+      setBusyByRiderId((p) => ({ ...p, [riderId]: false }));
+    }
+  }
+
+  async function loadStats(riderId: string) {
+    setBusyByRiderId((p) => ({ ...p, [riderId]: true }));
+    try {
+      const data = await fetchRiderStats(riderId);
+      setStatsByRiderId((prev) => ({
+        ...prev,
+        [riderId]: {
+          deliveryCount: data.stats.deliveryCount,
+          totalEarningsKobo: data.stats.totalEarningsKobo
+        }
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load rider stats");
     } finally {
       setBusyByRiderId((p) => ({ ...p, [riderId]: false }));
     }
@@ -185,6 +212,7 @@ export default function RidersPage() {
               <th>Active</th>
               <th>Join date</th>
               <th>Strikes</th>
+              <th>Earnings</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -206,6 +234,23 @@ export default function RidersPage() {
                 <td>{r.isActive ? "active" : "suspended"}</td>
                 <td>{r.joinDate}</td>
                 <td>{r.strikeCount}</td>
+                <td>
+                  {statsByRiderId[r.id] ? (
+                    <span>
+                      {formatNairaFromKobo(statsByRiderId[r.id].totalEarningsKobo)} (
+                      {statsByRiderId[r.id].deliveryCount} trips)
+                    </span>
+                  ) : (
+                    <button
+                      className="btn"
+                      type="button"
+                      disabled={Boolean(busyByRiderId[r.id])}
+                      onClick={() => loadStats(r.id)}
+                    >
+                      {busyByRiderId[r.id] ? "..." : "Load"}
+                    </button>
+                  )}
+                </td>
                 <td>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <button
@@ -238,7 +283,7 @@ export default function RidersPage() {
             ))}
             {!riders.length && !error ? (
               <tr>
-                <td colSpan={9} className="muted">
+                <td colSpan={10} className="muted">
                   No riders yet. Create the first rider above.
                 </td>
               </tr>

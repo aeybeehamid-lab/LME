@@ -1,7 +1,10 @@
 import { Router } from "express";
 import express from "express";
 import { z } from "zod";
+import { config } from "../../config";
+import { AppError } from "../../middleware/errorHandler";
 import {
+  devConfirmPayment,
   handlePaystackWebhook,
   initializePayment,
   verifyPaystackSignature
@@ -19,12 +22,34 @@ const initSchema = z.object({
 router.post(
   "/initialize",
   requireAuth,
-  requireRoles("customer", "executive"),
+  requireRoles("customer", "executive", "ops_assistant"),
   async (req, res, next) => {
     try {
       const body = initSchema.parse(req.body);
       const payment = await initializePayment(body);
       res.status(201).json({ payment });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+const devConfirmSchema = z.object({
+  orderId: z.string().uuid()
+});
+
+router.post(
+  "/dev-confirm",
+  requireAuth,
+  requireRoles("executive", "ops_assistant"),
+  async (req, res, next) => {
+    try {
+      if (config.env === "production") {
+        throw new AppError(403, "Dev payment confirm is disabled in production.", "FORBIDDEN");
+      }
+      const body = devConfirmSchema.parse(req.body);
+      const result = await devConfirmPayment(body.orderId);
+      res.json({ ok: true, ...result });
     } catch (err) {
       next(err);
     }

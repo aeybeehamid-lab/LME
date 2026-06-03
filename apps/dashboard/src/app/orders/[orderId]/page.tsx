@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  devConfirmPayment,
   fetchOrderById,
   fetchOrderEvents,
   fetchRiders,
+  formatNairaFromKobo,
+  initializePayment,
   updateOrderStatus
 } from "../../../lib/api";
 import { Toast } from "../../../components/Toast";
@@ -97,6 +100,41 @@ export default function OrderDetailPage() {
       )
       .catch(() => setRiders([]));
   }, [orderId]);
+
+  async function startPayment() {
+    if (!order) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await initializePayment({
+        orderId: order.id,
+        amountKobo: order.deliveryFeeKobo,
+        idempotencyKey: `init:${order.id}:${Date.now()}`
+      });
+      setMessage("Payment started. Use dev confirm or Paystack webhook to complete.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start payment");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmPaymentDev() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await devConfirmPayment(orderId);
+      setMessage("Payment confirmed (dev). Order posted to job board.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to confirm payment");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function assignRider(reason: string) {
     if (!selectedRiderId) {
@@ -248,6 +286,24 @@ export default function OrderDetailPage() {
           {order.deliveredAt ? ` · Delivered ${order.deliveredAt}` : ""}
         </p>
       </div>
+
+      {order.status === "created" || order.status === "payment_pending" ? (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3>Payment</h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Fee: {formatNairaFromKobo(order.deliveryFeeKobo)}. Dev tools until Paystack checkout is wired in UI.
+          </p>
+          {order.status === "created" ? (
+            <button className="btn" type="button" disabled={busy} onClick={startPayment}>
+              {busy ? "Working..." : "Start payment"}
+            </button>
+          ) : (
+            <button className="btn" type="button" disabled={busy} onClick={confirmPaymentDev}>
+              {busy ? "Working..." : "Confirm payment (dev)"}
+            </button>
+          )}
+        </div>
+      ) : null}
 
       {canDispatch ? (
         <div className="card" style={{ marginTop: 16 }}>

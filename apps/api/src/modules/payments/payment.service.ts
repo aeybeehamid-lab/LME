@@ -116,3 +116,28 @@ export async function handlePaystackWebhook(input: {
     client.release();
   }
 }
+
+/** Dev-only: mark latest pending payment successful without Paystack. */
+export async function devConfirmPayment(orderId: string) {
+  if (config.env === "production") {
+    throw new AppError(403, "Dev payment confirm is disabled in production.", "FORBIDDEN");
+  }
+
+  const result = await pool.query<DbPayment>(
+    `SELECT * FROM payments
+     WHERE order_id = $1 AND status = 'pending'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [orderId]
+  );
+  const payment = result.rows[0];
+  if (!payment) {
+    throw new AppError(404, "No pending payment for this order.", "NOT_FOUND");
+  }
+
+  return handlePaystackWebhook({
+    reference: payment.paystack_reference,
+    status: "success",
+    idempotencyKey: `dev-confirm:${payment.id}`
+  });
+}
