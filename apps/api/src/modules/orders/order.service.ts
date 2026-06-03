@@ -12,6 +12,8 @@ interface DbOrder {
   id: string;
   customer_id: string;
   rider_id: string | null;
+  customer_name?: string | null;
+  rider_name?: string | null;
   category: OrderCategory;
   status: OrderStatus;
   delivery_fee_kobo: string;
@@ -40,7 +42,9 @@ function mapOrder(row: DbOrder) {
   return {
     id: row.id,
     customerId: row.customer_id,
+    customerName: row.customer_name ?? undefined,
     riderId: row.rider_id ?? undefined,
+    riderName: row.rider_name ?? undefined,
     category: row.category,
     status: row.status,
     deliveryFeeKobo: fee,
@@ -100,20 +104,29 @@ export async function listOrders(filters?: {
 
   if (filters?.status) {
     values.push(filters.status);
-    clauses.push(`status = $${values.length}`);
+    clauses.push(`o.status = $${values.length}`);
   }
   if (filters?.customerId) {
     values.push(filters.customerId);
-    clauses.push(`customer_id = $${values.length}`);
+    clauses.push(`o.customer_id = $${values.length}`);
   }
   if (filters?.riderId) {
     values.push(filters.riderId);
-    clauses.push(`rider_id = $${values.length}`);
+    clauses.push(`o.rider_id = $${values.length}`);
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const result = await pool.query<DbOrder>(
-    `SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT 100`,
+    `SELECT
+       o.*,
+       cu.name as customer_name,
+       ru.name as rider_name
+     FROM orders o
+     INNER JOIN users cu ON cu.id = o.customer_id
+     LEFT JOIN users ru ON ru.id = o.rider_id
+     ${where}
+     ORDER BY o.created_at DESC
+     LIMIT 100`,
     values
   );
 
@@ -121,9 +134,17 @@ export async function listOrders(filters?: {
 }
 
 export async function getOrderById(orderId: string) {
-  const result = await pool.query<DbOrder>(`SELECT * FROM orders WHERE id = $1`, [
-    orderId
-  ]);
+  const result = await pool.query<DbOrder>(
+    `SELECT
+       o.*,
+       cu.name as customer_name,
+       ru.name as rider_name
+     FROM orders o
+     INNER JOIN users cu ON cu.id = o.customer_id
+     LEFT JOIN users ru ON ru.id = o.rider_id
+     WHERE o.id = $1`,
+    [orderId]
+  );
   const row = result.rows[0];
   if (!row) throw new AppError(404, "Order not found.", "NOT_FOUND");
   return mapOrder(row);

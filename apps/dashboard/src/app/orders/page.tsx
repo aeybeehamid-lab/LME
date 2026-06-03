@@ -15,10 +15,13 @@ type OrderRow = {
   id: string;
   category: string;
   status: string;
+  customerName?: string;
   deliveryFeeKobo: number;
   pickupAddress: string;
   dropoffAddress: string;
   itemDescription?: string;
+  riderId?: string;
+  riderName?: string;
   escalatedAt?: string;
   createdAt: string;
 };
@@ -146,6 +149,10 @@ export default function OrdersPage() {
       setError("Select a status before updating.");
       return;
     }
+    if (next === "rider_assigned" && !riderAssignment[orderId]) {
+      setError("Select a rider before assigning.");
+      return;
+    }
     setError("");
     setStatusMessage("");
     setBusyByOrderId((prev) => ({ ...prev, [orderId]: true }));
@@ -163,7 +170,7 @@ export default function OrdersPage() {
           | "cancelled"
           | "refunded",
         reason: "Updated from dashboard",
-        riderId: riderAssignment[orderId] || undefined
+        riderId: next === "rider_assigned" ? riderAssignment[orderId] || undefined : undefined
       });
       setStatusMessage(`Order ${orderId.slice(0, 8)} updated to ${next}.`);
       await loadOrders();
@@ -384,6 +391,7 @@ export default function OrdersPage() {
               <th>ID</th>
               <th>Category</th>
               <th>Status</th>
+              <th>Rider</th>
               <th>Fee (NGN)</th>
               <th>Pickup</th>
               <th>Dropoff</th>
@@ -398,6 +406,7 @@ export default function OrdersPage() {
                 <td>{order.id.slice(0, 8)}...</td>
                 <td>{order.category}</td>
                 <td>{order.status}</td>
+                <td>{order.riderName ?? (order.riderId ? `${order.riderId.slice(0, 8)}...` : "-")}</td>
                 <td>{(order.deliveryFeeKobo / 100).toLocaleString("en-NG")}</td>
                 <td>{order.pickupAddress}</td>
                 <td>{order.dropoffAddress}</td>
@@ -488,6 +497,25 @@ export default function OrdersPage() {
                         </option>
                       ))}
                     </select>
+                    {statusChoice[order.id] === "rider_assigned" ? (
+                      <select
+                        value={riderAssignment[order.id] ?? ""}
+                        onChange={(event) =>
+                          setRiderAssignment((prev) => ({
+                            ...prev,
+                            [order.id]: event.target.value
+                          }))
+                        }
+                        disabled={Boolean(busyByOrderId[order.id])}
+                      >
+                        <option value="">Select rider</option>
+                        {riders.map((rider) => (
+                          <option key={rider.id} value={rider.id}>
+                            {rider.name} {rider.isOnline ? "(online)" : "(offline)"}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
                     <button
                       className="btn"
                       type="button"
