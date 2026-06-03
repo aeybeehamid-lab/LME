@@ -43,6 +43,10 @@ export async function fetchOrders(status?: string) {
   return apiFetch<{ orders: Array<Record<string, unknown>> }>(`/orders${query}`);
 }
 
+export async function fetchOrderById(orderId: string) {
+  return apiFetch<{ order: Record<string, unknown> }>(`/orders/${orderId}`);
+}
+
 export async function createOrder(input: {
   category: "gadgets" | "food" | "grocery" | "laundry" | "other";
   deliveryFeeKobo: number;

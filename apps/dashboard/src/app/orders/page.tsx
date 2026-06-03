@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createOrder,
@@ -199,7 +200,7 @@ export default function OrdersPage() {
     reason: string
   ) {
     if (toStatus === "rider_assigned" && !riderAssignment[orderId]) {
-      setError("Select a rider before assigning escalated order.");
+      setError("Select a rider before assigning.");
       return;
     }
     if (toStatus === "refunded") {
@@ -396,14 +397,16 @@ export default function OrdersPage() {
               <th>Pickup</th>
               <th>Dropoff</th>
               <th>Automation</th>
-              <th>Escalation Actions</th>
+              <th>Quick Actions</th>
               <th>Update Status</th>
             </tr>
           </thead>
           <tbody>
             {orders.map((order) => (
               <tr key={order.id}>
-                <td>{order.id.slice(0, 8)}...</td>
+                <td>
+                  <Link href={`/orders/${order.id}`}>{order.id.slice(0, 8)}...</Link>
+                </td>
                 <td>{order.category}</td>
                 <td>{order.status}</td>
                 <td>{order.riderName ?? (order.riderId ? `${order.riderId.slice(0, 8)}...` : "-")}</td>
@@ -418,7 +421,7 @@ export default function OrdersPage() {
                   )}
                 </td>
                 <td>
-                  {order.status === "escalated" ? (
+                  {order.status === "posted_to_job_board" || order.status === "escalated" ? (
                     <div style={{ display: "grid", gap: 6 }}>
                       <select
                         value={riderAssignment[order.id] ?? ""}
@@ -437,7 +440,7 @@ export default function OrdersPage() {
                           </option>
                         ))}
                       </select>
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button
                           className="btn"
                           type="button"
@@ -445,33 +448,47 @@ export default function OrdersPage() {
                             quickAction(
                               order.id,
                               "rider_assigned",
-                              "Assigned by admin from escalated queue"
+                              order.status === "escalated"
+                                ? "Assigned by admin from escalated queue"
+                                : "Assigned by admin from job board"
                             )
                           }
                           disabled={Boolean(busyByOrderId[order.id])}
                         >
                           {busyByOrderId[order.id] ? "Working..." : "Assign"}
                         </button>
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() =>
-                            quickAction(order.id, "refunded", "Force refund from escalated queue")
-                          }
-                          disabled={Boolean(busyByOrderId[order.id])}
-                        >
-                          {busyByOrderId[order.id] ? "Working..." : "Refund"}
-                        </button>
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() =>
-                            quickAction(order.id, "cancelled", "Cancelled from escalated queue")
-                          }
-                          disabled={Boolean(busyByOrderId[order.id])}
-                        >
-                          {busyByOrderId[order.id] ? "Working..." : "Cancel"}
-                        </button>
+                        {order.status === "escalated" ? (
+                          <>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() =>
+                                quickAction(
+                                  order.id,
+                                  "refunded",
+                                  "Force refund from escalated queue"
+                                )
+                              }
+                              disabled={Boolean(busyByOrderId[order.id])}
+                            >
+                              {busyByOrderId[order.id] ? "Working..." : "Refund"}
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() =>
+                                quickAction(
+                                  order.id,
+                                  "cancelled",
+                                  "Cancelled from escalated queue"
+                                )
+                              }
+                              disabled={Boolean(busyByOrderId[order.id])}
+                            >
+                              {busyByOrderId[order.id] ? "Working..." : "Cancel"}
+                            </button>
+                          </>
+                        ) : null}
                       </div>
                     </div>
                   ) : (
@@ -524,21 +541,16 @@ export default function OrdersPage() {
                     >
                       {busyByOrderId[order.id] ? "Updating..." : "Update"}
                     </button>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => loadEvents(order.id)}
-                      disabled={Boolean(busyByOrderId[order.id])}
-                    >
-                      Timeline
-                    </button>
+                    <Link className="btn" href={`/orders/${order.id}`}>
+                      Details
+                    </Link>
                   </div>
                 </td>
               </tr>
             ))}
             {!orders.length && !error ? (
               <tr>
-                <td colSpan={9} className="muted">
+                <td colSpan={10} className="muted">
                   No orders yet. Use the create form above to add the first order.
                 </td>
               </tr>
