@@ -70,6 +70,7 @@ export default function OrderDetailPage() {
   const [message, setMessage] = useState("");
   const [selectedRiderId, setSelectedRiderId] = useState("");
   const [nextStatus, setNextStatus] = useState("");
+  const [paystackUrl, setPaystackUrl] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -107,12 +108,18 @@ export default function OrderDetailPage() {
     setError("");
     setMessage("");
     try {
-      await initializePayment({
+      const result = await initializePayment({
         orderId: order.id,
         amountKobo: order.deliveryFeeKobo,
         idempotencyKey: `init:${order.id}:${Date.now()}`
       });
-      setMessage("Payment started. Use dev confirm or Paystack webhook to complete.");
+      const url = result.payment.authorizationUrl ?? null;
+      setPaystackUrl(url);
+      setMessage(
+        url
+          ? "Paystack checkout ready — open the link below to pay."
+          : "Payment started (no Paystack key). Use dev confirm to complete."
+      );
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start payment");
@@ -298,9 +305,24 @@ export default function OrderDetailPage() {
               {busy ? "Working..." : "Start payment"}
             </button>
           ) : (
-            <button className="btn" type="button" disabled={busy} onClick={confirmPaymentDev}>
-              {busy ? "Working..." : "Confirm payment (dev)"}
-            </button>
+            <>
+              {paystackUrl ? (
+                <p style={{ marginTop: 8 }}>
+                  <a href={paystackUrl} target="_blank" rel="noreferrer" className="btn">
+                    Open Paystack checkout
+                  </a>
+                </p>
+              ) : null}
+              <button
+                className="btn"
+                type="button"
+                disabled={busy}
+                onClick={confirmPaymentDev}
+                style={{ marginTop: 8 }}
+              >
+                {busy ? "Working..." : "Confirm payment (dev)"}
+              </button>
+            </>
           )}
         </div>
       ) : null}

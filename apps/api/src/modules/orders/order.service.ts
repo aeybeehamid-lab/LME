@@ -1,12 +1,14 @@
 import {
   OrderCategory,
   OrderStatus,
+  UserRole,
   lmeRevenueKobo,
   riderCommissionKobo
 } from "@lme/types";
 import { pool } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
 import { assertValidTransition } from "./order.state-machine";
+import { assertRoleCanTransition } from "./order.transition-policy";
 
 interface DbOrder {
   id: string;
@@ -133,6 +135,10 @@ export async function listOrders(filters?: {
   return result.rows.map(mapOrder);
 }
 
+export async function listOpenJobBoardOrders() {
+  return listOrders({ status: "posted_to_job_board" });
+}
+
 export async function getOrderById(orderId: string) {
   const result = await pool.query<DbOrder>(
     `SELECT
@@ -175,6 +181,7 @@ export async function transitionOrderStatus(input: {
   orderId: string;
   toStatus: OrderStatus;
   actorUserId?: string;
+  actorRole?: UserRole;
   riderId?: string;
   reason?: string;
 }) {
@@ -191,6 +198,11 @@ export async function transitionOrderStatus(input: {
 
     const fromStatus = order.status;
     assertValidTransition(fromStatus, input.toStatus);
+    assertRoleCanTransition(input.actorRole, fromStatus, input.toStatus, {
+      actorUserId: input.actorUserId,
+      orderRiderId: order.rider_id,
+      assignRiderId: input.riderId
+    });
 
     const escalatedAt =
       input.toStatus === "escalated" ? new Date() : order.escalated_at ?? null;

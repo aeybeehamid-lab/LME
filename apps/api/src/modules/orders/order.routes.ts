@@ -4,6 +4,7 @@ import {
   createOrder,
   getOrderEvents,
   getOrderById,
+  listOpenJobBoardOrders,
   listOrders,
   transitionOrderStatus
 } from "./order.service";
@@ -56,6 +57,19 @@ router.post("/", requireRoles("customer", "executive", "ops_assistant"), async (
   }
 });
 
+router.get(
+  "/open-jobs",
+  requireRoles("rider"),
+  async (_req, res, next) => {
+    try {
+      const orders = await listOpenJobBoardOrders();
+      res.json({ orders });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 router.get("/", async (req: AuthenticatedRequest, res, next) => {
   try {
     const role = req.user!.role;
@@ -78,9 +92,21 @@ router.get("/", async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
-router.get("/:orderId", async (req, res, next) => {
+router.get("/:orderId", async (req: AuthenticatedRequest, res, next) => {
   try {
     const order = await getOrderById(req.params.orderId);
+    const role = req.user?.role;
+    if (role === "customer" && order.customerId !== req.user!.id) {
+      res.status(403).json({ error: { message: "Forbidden." } });
+      return;
+    }
+    if (role === "rider" && order.riderId && order.riderId !== req.user!.id) {
+      const open = order.status === "posted_to_job_board";
+      if (!open) {
+        res.status(403).json({ error: { message: "Forbidden." } });
+        return;
+      }
+    }
     res.json({ order });
   } catch (err) {
     next(err);
@@ -110,6 +136,7 @@ router.patch(
         orderId: req.params.orderId,
         toStatus: body.toStatus,
         actorUserId: req.user!.id,
+        actorRole: req.user!.role,
         riderId: body.riderId ?? (req.user!.role === "rider" ? req.user!.id : undefined),
         reason: body.reason
       });

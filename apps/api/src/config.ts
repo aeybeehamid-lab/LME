@@ -16,5 +16,6 @@ export const config = {
     "postgresql://postgres:postgres@localhost:5432/lme",
   jwtSecret: process.env.JWT_SECRET ?? "dev-only-change-me",
   paystackSecretKey: process.env.PAYSTACK_SECRET_KEY ?? "",
+  paystackCallbackUrl: process.env.PAYSTACK_CALLBACK_URL ?? "",
   orderAutomationIntervalMs: Number(process.env.ORDER_AUTOMATION_INTERVAL_MS ?? "60000")
 };

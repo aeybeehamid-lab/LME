@@ -182,8 +182,15 @@ export async function initializePayment(input: {
   orderId: string;
   amountKobo: number;
   idempotencyKey: string;
+  customerEmail?: string;
 }) {
-  return apiFetch<{ payment: Record<string, unknown> }>("/payments/initialize", {
+  return apiFetch<{
+    payment: {
+      authorizationUrl?: string | null;
+      paystackLive?: boolean;
+      paystackReference?: string;
+    };
+  }>("/payments/initialize", {
     method: "POST",
     body: JSON.stringify(input)
   });

@@ -3,6 +3,7 @@ import { pool } from "../../db";
 import { config } from "../../config";
 import { AppError } from "../../middleware/errorHandler";
 import { transitionOrderStatus } from "../orders/order.service";
+import { initializePaystackCheckout } from "./paystack.client";
 
 interface DbPayment {
   id: string;
@@ -13,20 +14,66 @@ interface DbPayment {
   idempotency_key: string;
 }
 
+function mapPaymentResponse(
+  payment: DbPayment,
+  paystack?: { authorizationUrl: string; accessCode: string } | null
+) {
+  return {
+    id: payment.id,
+    orderId: payment.order_id,
+    paystackReference: payment.paystack_reference,
+    amountKobo: Number(payment.amount_kobo),
+    status: payment.status,
+    authorizationUrl: paystack?.authorizationUrl ?? null,
+    accessCode: paystack?.accessCode ?? null,
+    paystackLive: Boolean(paystack?.authorizationUrl)
+  };
+}
+
 export async function initializePayment(input: {
   orderId: string;
   amountKobo: number;
   idempotencyKey: string;
+  customerEmail?: string;
 }) {
   const existing = await pool.query<DbPayment>(
     `SELECT * FROM payments WHERE idempotency_key = $1`,
     [input.idempotencyKey]
   );
   if (existing.rows[0]) {
-    return existing.rows[0];
+    return mapPaymentResponse(existing.rows[0], null);
+  }
+
+  const orderResult = await pool.query<{ status: string; phone: string }>(
+    `SELECT o.status, u.phone
+     FROM orders o
+     INNER JOIN users u ON u.id = o.customer_id
+     WHERE o.id = $1`,
+    [input.orderId]
+  );
+  const orderRow = orderResult.rows[0];
+  if (!orderRow) {
+    throw new AppError(404, "Order not found.", "NOT_FOUND");
+  }
+  if (orderRow.status !== "created" && orderRow.status !== "payment_pending") {
+    throw new AppError(
+      400,
+      "Payment can only be started for new or pending-payment orders.",
+      "INVALID_STATE"
+    );
   }
 
   const reference = `LME-${input.orderId.slice(0, 8)}-${Date.now()}`;
+  const email =
+    input.customerEmail ??
+    `${orderRow.phone.replace(/\D/g, "") || "customer"}@lme.customer`;
+
+  const paystack = await initializePaystackCheckout({
+    email,
+    amountKobo: input.amountKobo,
+    reference,
+    metadata: { order_id: input.orderId }
+  });
 
   const inserted = await pool.query<DbPayment>(
     `INSERT INTO payments (order_id, paystack_reference, amount_kobo, status, idempotency_key)
@@ -38,20 +85,15 @@ export async function initializePayment(input: {
   const payment = inserted.rows[0];
   if (!payment) throw new AppError(500, "Failed to initialize payment.");
 
-  await transitionOrderStatus({
-    orderId: input.orderId,
-    toStatus: "payment_pending",
-    reason: "Payment initialized"
-  });
+  if (orderRow.status === "created") {
+    await transitionOrderStatus({
+      orderId: input.orderId,
+      toStatus: "payment_pending",
+      reason: "Payment initialized"
+    });
+  }
 
-  return {
-    id: payment.id,
-    orderId: payment.order_id,
-    paystackReference: payment.paystack_reference,
-    amountKobo: Number(payment.amount_kobo),
-    status: payment.status,
-    checkoutUrl: `https://checkout.paystack.com/${payment.paystack_reference}`
-  };
+  return mapPaymentResponse(payment, paystack);
 }
 
 export function verifyPaystackSignature(rawBody: Buffer, signature?: string): boolean {
