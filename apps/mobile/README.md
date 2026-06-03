@@ -1,11 +1,14 @@
-# LME Mobile (Rider — Sprint 2 start)
+# LME Mobile (Customer + Rider)
 
-Rider dev app: login → open job board → accept → update delivery status.
+Dev app with role at login:
+
+- **Customer** — book delivery, pay (dev), view orders & status  
+- **Rider** — open job board → accept → update delivery status  
 
 ## Run
 
 1. API must be running: `npm.cmd run dev:api` (from repo root).
-2. Create a **rider** in Admin → Riders (or dev-login as rider).
+2. For rider flow, create a rider in Admin → Riders. Customer can use any new phone at login.
 3. From repo root:
 
 ```bash
@@ -19,5 +22,5 @@ npm run start
 
 ## Fonts
 
-Loaded in `App.tsx` via `@expo-google-fonts/dm-sans` and `cormorant-garamond`.  
-Family names used in styles: `src/theme.ts` → `fonts` object.
+- **Times New Roman** (italic) — brand line “Life Made Easy” / “LME Rider” (`src/theme.ts` → `fonts.displayItalic`)  
+- **DM Sans** — everything else (`@expo-google-fonts/dm-sans`)
