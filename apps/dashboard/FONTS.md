@@ -4,25 +4,30 @@
 
 | Use | Font |
 |-----|------|
-| Headings | **Cormorant Garamond** (italic on main titles) |
-| Body, UI, tables | **DM Sans** (weights 300–600) |
+| Page titles (`h1`, `h2`), “LME Admin” brand | **Cormorant Garamond** (italic on main titles) |
+| Body, tables, labels, **all buttons** (including Dismiss) | **DM Sans** (500 weight on controls) |
+| Card section titles (`h3`) | **DM Sans 600** (clearer at small sizes) |
+
+## Why “Dismiss” looked wrong before
+
+Browsers use a **system font on `<button>`** by default and often **ignore** the page body font.  
+Green toast actions used `className="btn"`, which still didn’t set `font-family` on the element.
+
+**Fix:** `globals.css` now sets `font-family: var(--font-body)` on `button`, `.btn`, `.btn-ghost`, inputs, and selects.  
+Toasts use **`btn-ghost`** (outline) instead of the solid green `.btn`, with explicit DM Sans sizing.
 
 ## Where to edit
 
-1. **`src/app/layout.tsx`** — primary place  
-   - Imports `Cormorant_Garamond` and `DM_Sans` from `next/font/google`  
-   - Change family names, weights, or subsets here  
-   - Example: swap `DM_Sans` for another Google font by changing the import and config object  
+1. **`src/app/layout.tsx`** — load fonts from Google via `next/font/google`  
+   - Change `DM_Sans` / `Cormorant_Garamond` weights or families here  
 
-2. **`src/app/globals.css`** — how fonts are applied  
-   - `--font-body` and `--font-heading` CSS variables  
-   - `h1` / `h2` / `h3` sizes and italic heading style  
-   - `.nav strong` for the “LME Admin” brand line  
+2. **`src/app/globals.css`** — how fonts apply  
+   - `--font-body` / `--font-heading`  
+   - `.btn`, `.btn-ghost`, `.toast`, `h1`–`h3`, tables, labels  
 
-3. **One-off overrides** — avoid inline `fontFamily` on pages; prefer a class in `globals.css`  
+3. **`src/components/Toast.tsx`** — toast layout; uses classes from `globals.css`  
 
-## How it works
+## After changes
 
-Next.js **self-hosts** the font files at build time (`next/font/google`), so the browser does not depend on Segoe UI or other system fonts. That is why the UI looked “local” before: only the name `DM Sans` was in CSS without loading the actual font files.
-
-After changing `layout.tsx`, restart the dev server: `npm.cmd run dev:dashboard`.
+Restart: `npm.cmd run dev:dashboard`  
+Hard refresh: **Ctrl+Shift+R**

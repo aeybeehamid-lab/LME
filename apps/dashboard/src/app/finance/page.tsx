@@ -65,16 +65,14 @@ export default function FinancePage() {
           <div className="grid" style={{ marginTop: 16 }}>
             <article className="card">
               <h3>Money In</h3>
-              <p style={{ fontSize: 24, margin: "8px 0" }}>
-                {formatNairaFromKobo(summary.moneyInKobo)}
-              </p>
+              <p className="stat-value">{formatNairaFromKobo(summary.moneyInKobo)}</p>
               <p className="muted">
                 {summary.payments.success} successful Paystack payments
               </p>
             </article>
             <article className="card">
               <h3>Rider Commissions</h3>
-              <p style={{ fontSize: 24, margin: "8px 0" }}>
+              <p className="stat-value">
                 {formatNairaFromKobo(summary.riderCommissionsKobo)}
               </p>
               <p className="muted">
@@ -83,14 +81,14 @@ export default function FinancePage() {
             </article>
             <article className="card">
               <h3>Refunds</h3>
-              <p style={{ fontSize: 24, margin: "8px 0" }}>
+              <p className="stat-value">
                 {formatNairaFromKobo(summary.refundedKobo)}
               </p>
               <p className="muted">Refunded payment volume</p>
             </article>
             <article className="card">
               <h3>Net (estimate)</h3>
-              <p style={{ fontSize: 24, margin: "8px 0" }}>
+              <p className="stat-value">
                 {formatNairaFromKobo(summary.netKobo)}
               </p>
               <p className="muted">Money in − commissions − refunds</p>

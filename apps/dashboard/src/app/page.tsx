@@ -27,12 +27,12 @@ export default function OverviewPage() {
           <article className="card">
             <span className="badge">Live</span>
             <h3>Revenue</h3>
-            <p style={{ fontSize: 22 }}>{formatNairaFromKobo(summary.moneyInKobo)}</p>
+            <p className="stat-value">{formatNairaFromKobo(summary.moneyInKobo)}</p>
             <p className="muted">Customer payments collected</p>
           </article>
           <article className="card">
             <h3>Active orders</h3>
-            <p style={{ fontSize: 22 }}>{summary.activeOrders}</p>
+            <p className="stat-value">{summary.activeOrders}</p>
             <p className="muted">
               {(summary.ordersByStatus.escalated ?? 0) > 0
                 ? `${summary.ordersByStatus.escalated} escalated — needs action`
@@ -41,7 +41,7 @@ export default function OverviewPage() {
           </article>
           <article className="card">
             <h3>Delivered</h3>
-            <p style={{ fontSize: 22 }}>{summary.deliveredCount}</p>
+            <p className="stat-value">{summary.deliveredCount}</p>
             <p className="muted">Completed deliveries</p>
           </article>
         </div>
