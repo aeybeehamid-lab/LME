@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "LME Rider",
+    "slug": "lme-rider",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#080E09"
+    },
+    "android": {
+      "package": "com.lme.rider"
+    },
+    "ios": {
+      "bundleIdentifier": "com.lme.rider"
+    }
+  }
+}
