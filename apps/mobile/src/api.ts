@@ -53,6 +53,13 @@ export async function devLogin(phone: string, role: AppRole, name?: string) {
   });
 }
 
+export async function registerPushToken(token: string, platform: "ios" | "android" | "web") {
+  return apiFetch<{ ok: boolean }>("/notifications/register-token", {
+    method: "POST",
+    body: JSON.stringify({ token, platform })
+  });
+}
+
 export async function firebaseLogin(idToken: string, role: AppRole) {
   return apiFetch<{ token: string }>("/auth/firebase", {
     method: "POST",

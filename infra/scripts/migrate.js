@@ -7,19 +7,21 @@ async function run() {
     process.env.DATABASE_URL ??
     "postgresql://postgres:postgres@localhost:5432/lme";
 
-  const migrationPath = path.join(
-    __dirname,
-    "..",
-    "migrations",
-    "001_initial_schema.sql"
-  );
-  const sql = fs.readFileSync(migrationPath, "utf8");
+  const migrationsDir = path.join(__dirname, "..", "migrations");
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((name) => name.endsWith(".sql"))
+    .sort();
 
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
-    await client.query(sql);
-    console.log("Migration applied:", migrationPath);
+    for (const file of files) {
+      const migrationPath = path.join(migrationsDir, file);
+      const sql = fs.readFileSync(migrationPath, "utf8");
+      await client.query(sql);
+      console.log("Migration applied:", file);
+    }
   } finally {
     await client.end();
   }

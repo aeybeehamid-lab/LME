@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "LME Rider",
-    "slug": "lme-rider",
+    "name": "LME",
+    "slug": "lme-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -13,7 +13,15 @@
       "package": "com.lme.rider"
     },
     "ios": {
-      "bundleIdentifier": "com.lme.rider"
-    }
+      "bundleIdentifier": "com.lme.mobile"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#1A6B2E"
+        }
+      ]
+    ]
   }
 }

@@ -4,7 +4,7 @@ import { AppError } from "../../middleware/errorHandler";
 
 let initialized = false;
 
-function ensureFirebaseAdmin(): admin.app.App {
+export function ensureFirebaseAdmin(): admin.app.App {
   if (!config.firebaseProjectId) {
     throw new AppError(
       503,

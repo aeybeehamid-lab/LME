@@ -10,6 +10,7 @@ import { AppRole, clearSession, getStoredRole, getToken, setSession } from "./sr
 import { CustomerApp } from "./src/CustomerApp";
 import { LoginScreen } from "./src/LoginScreen";
 import { RiderApp } from "./src/RiderApp";
+import { setupPushNotifications } from "./src/notifications";
 import { colors } from "./src/theme";
 import { shared } from "./src/styles";
 
@@ -28,7 +29,10 @@ export default function App() {
 
   useEffect(() => {
     Promise.all([getToken(), getStoredRole()]).then(([token, storedRole]) => {
-      if (token && storedRole) setRole(storedRole);
+      if (token && storedRole) {
+        setRole(storedRole);
+        void setupPushNotifications();
+      }
       setBooting(false);
     });
   }, []);
@@ -36,6 +40,7 @@ export default function App() {
   async function onLoggedIn(nextRole: AppRole, token: string) {
     await setSession(token, nextRole);
     setRole(nextRole);
+    void setupPushNotifications();
   }
 
   async function onLogout() {

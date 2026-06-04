@@ -9,6 +9,7 @@ import { pool } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
 import { assertValidTransition } from "./order.state-machine";
 import { assertRoleCanTransition } from "./order.transition-policy";
+import { notifyOrderStatusChange } from "../notifications/notification.service";
 
 interface DbOrder {
   id: string;
@@ -242,7 +243,18 @@ export async function transitionOrderStatus(input: {
     await client.query("COMMIT");
     const row = updated.rows[0];
     if (!row) throw new AppError(500, "Failed to update order.");
-    return mapOrder(row);
+    const mapped = mapOrder(row);
+
+    void notifyOrderStatusChange({
+      orderId: mapped.id,
+      customerId: mapped.customerId,
+      riderId: mapped.riderId,
+      category: mapped.category,
+      fromStatus,
+      toStatus: input.toStatus
+    });
+
+    return mapped;
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
