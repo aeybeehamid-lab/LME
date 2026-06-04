@@ -22,5 +22,5 @@ npm run start
 
 ## Fonts
 
-- **Times New Roman** (italic) — brand line “Life Made Easy” / “LME Rider” (`src/theme.ts` → `fonts.displayItalic`)  
+- **Cormorant Garamond** — brand line “Life Made Easy” (`src/theme.ts` → `fonts.display`)  
 - **DM Sans** — everything else (`@expo-google-fonts/dm-sans`)

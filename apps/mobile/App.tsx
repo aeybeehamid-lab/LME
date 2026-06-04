@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, SafeAreaView, ScrollView, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import {
+  CormorantGaramond_600SemiBold,
+  useFonts as useCormorantFonts
+} from "@expo-google-fonts/cormorant-garamond";
 import { useFonts, DMSans_400Regular, DMSans_500Medium } from "@expo-google-fonts/dm-sans";
 import { AppRole, clearSession, getStoredRole, getToken, setSession } from "./src/api";
 import { CustomerApp } from "./src/CustomerApp";
@@ -10,10 +14,14 @@ import { colors } from "./src/theme";
 import { shared } from "./src/styles";
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [dmLoaded] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium
   });
+  const [displayLoaded] = useCormorantFonts({
+    CormorantGaramond_600SemiBold
+  });
+  const fontsLoaded = dmLoaded && displayLoaded;
 
   const [booting, setBooting] = useState(true);
   const [role, setRole] = useState<AppRole | null>(null);

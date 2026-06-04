@@ -1,5 +1,3 @@
-import { Platform } from "react-native";
-
 /** Brand tokens — align with apps/dashboard/src/app/globals.css */
 export const colors = {
   bg: "#080E09",
@@ -13,14 +11,10 @@ export const colors = {
   error: "#ff8f8f"
 };
 
-/** Times New Roman for italic brand/page titles; DM Sans for UI */
+/** Cormorant Garamond for brand/page titles; DM Sans for UI (PRD) */
 export const fonts = {
   body: "DMSans_400Regular",
   bodyMedium: "DMSans_500Medium",
-  displayItalic: Platform.select({
-    ios: "Times New Roman",
-    android: "serif",
-    default: "Times New Roman"
-  }) as string,
+  display: "CormorantGaramond_600SemiBold",
   sectionTitle: "DMSans_500Medium"
 };

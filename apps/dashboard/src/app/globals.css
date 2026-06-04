@@ -7,9 +7,8 @@
   --text: #e8efe9;
   --muted: #6b8a6e;
   --gold: #c8a96e;
-  --font-body: var(--font-dm-sans), "Ariel", system-ui, sans-serif;
-  /* Italic display titles (LME Admin, page h1/h2) */
-  --font-display: "Cormorant Garamond", "Garamond", "Times New Roman", serif;
+  --font-body: var(--font-dm-sans), "Segoe UI", system-ui, sans-serif;
+  --font-heading: var(--font-cormorant), Georgia, "Times New Roman", serif;
 }
 
 * {
@@ -53,6 +52,7 @@ h1,
 h2 {
   font-family: var(--font-heading);
   font-weight: 600;
+  font-style: normal;
   letter-spacing: 0.01em;
   margin: 0 0 0.4em;
   line-height: 1.15;
@@ -60,13 +60,10 @@ h2 {
 
 h1 {
   font-size: clamp(2.125rem, 4.5vw, 3rem);
-  font-style: normal;
-  font-weight: 600;
 }
 
 h2 {
   font-size: 1.75rem;
-  font-style: normal;
 }
 
 /* Card/section titles: DM Sans reads cleaner at smaller sizes */

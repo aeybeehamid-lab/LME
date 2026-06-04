@@ -6,8 +6,7 @@ export const shared = StyleSheet.create({
   scroll: { padding: 20, paddingBottom: 40 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   brand: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: "italic",
+    fontFamily: fonts.display,
     fontSize: 32,
     color: colors.text,
     marginBottom: 16
