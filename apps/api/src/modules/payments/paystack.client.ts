@@ -51,3 +51,45 @@ export async function initializePaystackCheckout(input: {
     accessCode: payload.data.access_code
   };
 }
+
+interface PaystackVerifyResponse {
+  status: boolean;
+  message: string;
+  data?: {
+    status: string;
+    reference: string;
+    paid_at?: string;
+  };
+}
+
+/** Confirms payment after customer returns from Paystack (webhook may lag or be unreachable locally). */
+export async function verifyPaystackTransaction(
+  reference: string
+): Promise<{ status: "success" | "failed" | "pending" } | null> {
+  if (!config.paystackSecretKey || config.paystackSecretKey.includes("replace")) {
+    return null;
+  }
+
+  const response = await fetch(
+    `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+    {
+      headers: { Authorization: `Bearer ${config.paystackSecretKey}` }
+    }
+  );
+
+  const payload = (await response.json()) as PaystackVerifyResponse;
+  if (!response.ok || !payload.status || !payload.data) {
+    throw new AppError(
+      502,
+      payload.message || "Paystack verification failed.",
+      "PAYSTACK_ERROR"
+    );
+  }
+
+  const paystackStatus = payload.data.status;
+  if (paystackStatus === "success") return { status: "success" };
+  if (paystackStatus === "failed" || paystackStatus === "abandoned") {
+    return { status: "failed" };
+  }
+  return { status: "pending" };
+}

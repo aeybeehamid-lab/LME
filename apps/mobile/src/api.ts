@@ -86,17 +86,42 @@ export async function createOrder(input: {
   });
 }
 
-export async function initializePayment(orderId: string, amountKobo: number) {
-  return apiFetch<{
-    payment: { authorizationUrl?: string | null; paystackLive?: boolean };
-  }>("/payments/initialize", {
+export type PaymentInit = {
+  authorizationUrl?: string | null;
+  paystackLive?: boolean;
+  paystackReference?: string;
+  status?: string;
+};
+
+export async function initializePayment(
+  orderId: string,
+  amountKobo: number,
+  idempotencyKey?: string
+) {
+  return apiFetch<{ payment: PaymentInit }>("/payments/initialize", {
     method: "POST",
     body: JSON.stringify({
       orderId,
       amountKobo,
-      idempotencyKey: `init:${orderId}:${Date.now()}`
+      idempotencyKey: idempotencyKey ?? `init:${orderId}`
     })
   });
+}
+
+export async function verifyPayment(orderId: string) {
+  return apiFetch<{
+    verified: boolean;
+    orderStatus: string;
+    alreadyPaid?: boolean;
+    paymentStatus?: string;
+  }>("/payments/verify", {
+    method: "POST",
+    body: JSON.stringify({ orderId })
+  });
+}
+
+export async function fetchOrderById(orderId: string) {
+  return apiFetch<{ order: Order }>(`/orders/${orderId}`);
 }
 
 export async function devConfirmPayment(orderId: string) {

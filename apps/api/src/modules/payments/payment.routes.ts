@@ -7,9 +7,14 @@ import {
   devConfirmPayment,
   handlePaystackWebhook,
   initializePayment,
+  verifyPaymentForOrder,
   verifyPaystackSignature
 } from "./payment.service";
-import { requireAuth, requireRoles } from "../../middleware/auth";
+import {
+  AuthenticatedRequest,
+  requireAuth,
+  requireRoles
+} from "../../middleware/auth";
 
 const router = Router();
 
@@ -34,14 +39,42 @@ router.post(
   }
 );
 
-const devConfirmSchema = z.object({
+const verifySchema = z.object({
   orderId: z.string().uuid()
 });
 
 router.post(
+  "/verify",
+  requireAuth,
+  requireRoles("customer", "executive", "ops_assistant"),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const body = verifySchema.parse(req.body);
+      const result = await verifyPaymentForOrder({
+        orderId: body.orderId,
+        userId: req.user!.id,
+        userRole: req.user!.role
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+const devConfirmSchema = z.object({
+  orderId: z.string().uuid()
+});
+
+const devConfirmRoles =
+  config.env === "production"
+    ? (["executive", "ops_assistant"] as const)
+    : (["customer", "executive", "ops_assistant"] as const);
+
+router.post(
   "/dev-confirm",
   requireAuth,
-  requireRoles("executive", "ops_assistant"),
+  requireRoles(...devConfirmRoles),
   async (req, res, next) => {
     try {
       if (config.env === "production") {

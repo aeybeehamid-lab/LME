@@ -3,7 +3,7 @@ import { pool } from "../../db";
 import { config } from "../../config";
 import { AppError } from "../../middleware/errorHandler";
 import { transitionOrderStatus } from "../orders/order.service";
-import { initializePaystackCheckout } from "./paystack.client";
+import { initializePaystackCheckout, verifyPaystackTransaction } from "./paystack.client";
 
 interface DbPayment {
   id: string;
@@ -36,16 +36,8 @@ export async function initializePayment(input: {
   idempotencyKey: string;
   customerEmail?: string;
 }) {
-  const existing = await pool.query<DbPayment>(
-    `SELECT * FROM payments WHERE idempotency_key = $1`,
-    [input.idempotencyKey]
-  );
-  if (existing.rows[0]) {
-    return mapPaymentResponse(existing.rows[0], null);
-  }
-
-  const orderResult = await pool.query<{ status: string; phone: string }>(
-    `SELECT o.status, u.phone
+  const orderResult = await pool.query<{ status: string; phone: string; customer_id: string }>(
+    `SELECT o.status, u.phone, o.customer_id
      FROM orders o
      INNER JOIN users u ON u.id = o.customer_id
      WHERE o.id = $1`,
@@ -63,10 +55,34 @@ export async function initializePayment(input: {
     );
   }
 
-  const reference = `LME-${input.orderId.slice(0, 8)}-${Date.now()}`;
   const email =
     input.customerEmail ??
     `${orderRow.phone.replace(/\D/g, "") || "customer"}@lme.customer`;
+
+  const existing = await pool.query<DbPayment>(
+    `SELECT * FROM payments WHERE idempotency_key = $1`,
+    [input.idempotencyKey]
+  );
+  if (existing.rows[0]) {
+    const prior = existing.rows[0];
+    if (prior.status === "pending") {
+      const reference = `LME-${input.orderId.slice(0, 8)}-${Date.now()}`;
+      await pool.query(
+        `UPDATE payments SET paystack_reference = $2, updated_at = NOW() WHERE id = $1`,
+        [prior.id, reference]
+      );
+      const paystack = await initializePaystackCheckout({
+        email,
+        amountKobo: input.amountKobo,
+        reference,
+        metadata: { order_id: input.orderId }
+      });
+      return mapPaymentResponse({ ...prior, paystack_reference: reference }, paystack);
+    }
+    return mapPaymentResponse(prior, null);
+  }
+
+  const reference = `LME-${input.orderId.slice(0, 8)}-${Date.now()}`;
 
   const paystack = await initializePaystackCheckout({
     email,
@@ -182,4 +198,87 @@ export async function devConfirmPayment(orderId: string) {
     status: "success",
     idempotencyKey: `dev-confirm:${payment.id}`
   });
+}
+
+const paidOrderStatuses = new Set([
+  "payment_confirmed",
+  "posted_to_job_board",
+  "rider_assigned",
+  "picked_up",
+  "en_route",
+  "delivered"
+]);
+
+export async function verifyPaymentForOrder(input: {
+  orderId: string;
+  userId: string;
+  userRole: string;
+}) {
+  const orderResult = await pool.query<{ status: string; customer_id: string }>(
+    `SELECT status, customer_id FROM orders WHERE id = $1`,
+    [input.orderId]
+  );
+  const order = orderResult.rows[0];
+  if (!order) {
+    throw new AppError(404, "Order not found.", "NOT_FOUND");
+  }
+
+  if (
+    input.userRole === "customer" &&
+    order.customer_id !== input.userId
+  ) {
+    throw new AppError(403, "Forbidden.", "FORBIDDEN");
+  }
+
+  if (paidOrderStatuses.has(order.status)) {
+    return { verified: true, orderStatus: order.status, alreadyPaid: true };
+  }
+
+  const paymentResult = await pool.query<DbPayment>(
+    `SELECT * FROM payments
+     WHERE order_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [input.orderId]
+  );
+  const payment = paymentResult.rows[0];
+  if (!payment) {
+    throw new AppError(404, "No payment found for this order.", "NOT_FOUND");
+  }
+
+  if (payment.status === "success") {
+    return { verified: true, orderStatus: order.status, alreadyPaid: true };
+  }
+
+  const paystackResult = await verifyPaystackTransaction(payment.paystack_reference);
+  if (!paystackResult) {
+    throw new AppError(
+      400,
+      "Paystack is not configured. Use dev payment confirm in development.",
+      "PAYSTACK_UNAVAILABLE"
+    );
+  }
+
+  if (paystackResult.status === "success") {
+    await handlePaystackWebhook({
+      reference: payment.paystack_reference,
+      status: "success",
+      idempotencyKey: `verify:${payment.paystack_reference}`
+    });
+    const refreshed = await pool.query<{ status: string }>(
+      `SELECT status FROM orders WHERE id = $1`,
+      [input.orderId]
+    );
+    return {
+      verified: true,
+      orderStatus: refreshed.rows[0]?.status ?? order.status,
+      alreadyPaid: false
+    };
+  }
+
+  return {
+    verified: false,
+    orderStatus: order.status,
+    paymentStatus: paystackResult.status
+  };
 }

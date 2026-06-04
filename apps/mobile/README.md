@@ -5,6 +5,14 @@ Dev app with role at login:
 - **Customer** — book delivery, pay (dev), view orders & status  
 - **Rider** — open job board → accept → update delivery status  
 
+## Paystack (customer payments)
+
+1. Add your **test** secret key to the repo root `.env`:
+   `PAYSTACK_SECRET_KEY=sk_test_...`
+2. Restart the API after changing `.env`.
+3. Customer **Book & pay** opens Paystack in the phone browser, then the app verifies payment with the API.
+4. Without a Paystack key, payments use **dev confirm** automatically (local testing only).
+
 ## Run
 
 1. API must be running: `npm.cmd run dev:api` (from repo root).

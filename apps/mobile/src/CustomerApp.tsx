@@ -8,22 +8,27 @@ import {
   TextInput,
   View
 } from "react-native";
-import {
-  createOrder,
-  devConfirmPayment,
-  fetchMyOrders,
-  initializePayment,
-  Order
-} from "./api";
+import { createOrder, fetchMyOrders, Order } from "./api";
+import { completeOrderPayment } from "./paystack";
 import { shared } from "./styles";
 
 type Screen = "book" | "orders" | "track";
 
 const categories = ["gadgets", "food", "grocery", "laundry", "other"] as const;
 
+const paidStatuses = new Set([
+  "payment_confirmed",
+  "posted_to_job_board",
+  "rider_assigned",
+  "picked_up",
+  "en_route",
+  "delivered"
+]);
+
 export function CustomerApp(props: { onLogout: () => void }) {
   const [screen, setScreen] = useState<Screen>("book");
   const [loading, setLoading] = useState(false);
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
@@ -53,23 +58,55 @@ export function CustomerApp(props: { onLogout: () => void }) {
     void loadOrders();
   }, []);
 
+  async function payForOrder(order: Order) {
+    setPayingOrderId(order.id);
+    setError("");
+    setMessage("");
+    try {
+      setMessage("Opening Paystack checkout...");
+      const result = await completeOrderPayment(order.id, order.deliveryFeeKobo);
+      setMessage(
+        result.mode === "paystack"
+          ? "Payment confirmed. Your order is on the rider job board."
+          : "Payment confirmed (dev). Your order is on the job board."
+      );
+      await loadOrders();
+      const refreshed = (await fetchMyOrders()).orders.find((o) => o.id === order.id);
+      if (refreshed) setSelectedOrder(refreshed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment failed");
+    } finally {
+      setPayingOrderId(null);
+    }
+  }
+
   async function onBook() {
+    if (!form.pickup.trim() || !form.dropoff.trim()) {
+      setError("Pickup and dropoff addresses are required.");
+      return;
+    }
     setLoading(true);
     setError("");
     setMessage("");
     try {
       const fee = Math.round(Number(form.feeNaira) * 100);
+      if (!Number.isFinite(fee) || fee <= 0) {
+        throw new Error("Enter a valid delivery fee in Naira.");
+      }
       const { order } = await createOrder({
         category: form.category,
         deliveryFeeKobo: fee,
-        pickupAddress: form.pickup,
-        dropoffAddress: form.dropoff,
-        itemDescription: form.description || undefined
+        pickupAddress: form.pickup.trim(),
+        dropoffAddress: form.dropoff.trim(),
+        itemDescription: form.description.trim() || undefined
       });
-      setMessage("Order created. Starting payment...");
-      await initializePayment(order.id, order.deliveryFeeKobo);
-      await devConfirmPayment(order.id);
-      setMessage("Booked and paid (dev). Your order is on the job board.");
+      setMessage("Order created. Opening payment...");
+      const result = await completeOrderPayment(order.id, order.deliveryFeeKobo);
+      setMessage(
+        result.mode === "paystack"
+          ? "Booked and paid. Your order is on the rider job board."
+          : "Booked and paid (dev). Your order is on the job board."
+      );
       setForm((f) => ({ ...f, pickup: "", dropoff: "", description: "" }));
       await loadOrders();
       setScreen("orders");
@@ -108,6 +145,9 @@ export function CustomerApp(props: { onLogout: () => void }) {
         {screen === "book" ? (
           <View style={shared.card}>
             <Text style={shared.title}>Book a delivery</Text>
+            <Text style={shared.muted}>
+              You pay upfront via Paystack before the order goes to riders.
+            </Text>
             <Text style={shared.label}>Category</Text>
             <View style={[shared.roleRow, { flexWrap: "wrap" }]}>
               {categories.map((c) => (
@@ -149,9 +189,9 @@ export function CustomerApp(props: { onLogout: () => void }) {
               value={form.description}
               onChangeText={(v: string) => setForm((f) => ({ ...f, description: v }))}
             />
-            <Pressable style={shared.btn} onPress={onBook} disabled={loading}>
+            <Pressable style={shared.btn} onPress={onBook} disabled={loading || Boolean(payingOrderId)}>
               <Text style={shared.btnText}>
-                {loading ? "..." : "Book & pay (dev)"}
+                {loading ? "Working..." : "Book & pay with Paystack"}
               </Text>
             </Pressable>
           </View>
@@ -164,23 +204,50 @@ export function CustomerApp(props: { onLogout: () => void }) {
             {!orders.length && !loading ? (
               <Text style={shared.muted}>No orders yet. Book your first delivery.</Text>
             ) : null}
-            {orders.map((o) => (
-              <Pressable
-                key={o.id}
-                style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#111D13" }}
-                onPress={() => {
-                  setSelectedOrder(o);
-                  setScreen("track");
-                }}
-              >
-                <Text style={shared.body}>
-                  {o.category} · {o.status}
-                </Text>
-                <Text style={shared.muted}>
-                  ₦{(o.deliveryFeeKobo / 100).toLocaleString("en-NG")}
-                </Text>
-              </Pressable>
-            ))}
+            {orders.map((o) => {
+              const needsPayment =
+                o.status === "created" || o.status === "payment_pending";
+              const isPaying = payingOrderId === o.id;
+              return (
+                <View
+                  key={o.id}
+                  style={{
+                    marginTop: 12,
+                    paddingTop: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: "#111D13"
+                  }}
+                >
+                  <Pressable
+                    onPress={() => {
+                      setSelectedOrder(o);
+                      setScreen("track");
+                    }}
+                  >
+                    <Text style={shared.body}>
+                      {o.category} · {o.status}
+                    </Text>
+                    <Text style={shared.muted}>
+                      ₦{(o.deliveryFeeKobo / 100).toLocaleString("en-NG")}
+                    </Text>
+                  </Pressable>
+                  {needsPayment ? (
+                    <Pressable
+                      style={[shared.btn, { marginTop: 8 }]}
+                      disabled={isPaying}
+                      onPress={() => void payForOrder(o)}
+                    >
+                      <Text style={shared.btnText}>
+                        {isPaying ? "Paying..." : "Pay with Paystack"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {paidStatuses.has(o.status) ? (
+                    <Text style={[shared.muted, { marginTop: 4 }]}>Paid · on job board or in progress</Text>
+                  ) : null}
+                </View>
+              );
+            })}
             <Pressable style={shared.btnSecondary} onPress={loadOrders}>
               <Text style={shared.btnText}>Refresh</Text>
             </Pressable>
@@ -197,6 +264,20 @@ export function CustomerApp(props: { onLogout: () => void }) {
             ) : null}
             <Text style={shared.body}>{selectedOrder.pickupAddress}</Text>
             <Text style={shared.body}>→ {selectedOrder.dropoffAddress}</Text>
+            {selectedOrder.status === "created" ||
+            selectedOrder.status === "payment_pending" ? (
+              <Pressable
+                style={shared.btn}
+                disabled={payingOrderId === selectedOrder.id}
+                onPress={() => void payForOrder(selectedOrder)}
+              >
+                <Text style={shared.btnText}>
+                  {payingOrderId === selectedOrder.id
+                    ? "Paying..."
+                    : "Pay with Paystack"}
+                </Text>
+              </Pressable>
+            ) : null}
             <Pressable style={shared.btnSecondary} onPress={() => setScreen("orders")}>
               <Text style={shared.btnText}>Back to orders</Text>
             </Pressable>
