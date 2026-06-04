@@ -19,6 +19,85 @@ interface DbRiderDirectoryUser {
   is_online: boolean;
 }
 
+export async function findOrCreateFirebaseUser(input: {
+  firebaseUid: string;
+  phone: string;
+  role: UserRole;
+  name?: string;
+}): Promise<AuthUser> {
+  const byUid = await pool.query<DbUser>(
+    `SELECT id, phone, role, name FROM users WHERE firebase_uid = $1`,
+    [input.firebaseUid]
+  );
+  let userRow = byUid.rows[0];
+
+  if (!userRow) {
+    const byPhone = await pool.query<DbUser>(
+      `SELECT id, phone, role, name FROM users WHERE phone = $1`,
+      [input.phone]
+    );
+    userRow = byPhone.rows[0];
+  }
+
+  if (userRow) {
+    if (input.role === "executive" || input.role === "ops_assistant") {
+      if (userRow.role !== "executive" && userRow.role !== "ops_assistant") {
+        throw new AppError(
+          403,
+          "This phone is not authorized for admin access.",
+          "FORBIDDEN"
+        );
+      }
+    }
+
+    const updated = await pool.query<DbUser>(
+      `UPDATE users
+       SET firebase_uid = $2,
+           phone = $3,
+           name = COALESCE($4, name),
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, phone, role, name`,
+      [userRow.id, input.firebaseUid, input.phone, input.name ?? null]
+    );
+    userRow = updated.rows[0];
+  } else {
+    if (input.role === "executive" || input.role === "ops_assistant") {
+      throw new AppError(
+        403,
+        "Admin accounts must be created by LME before first login.",
+        "FORBIDDEN"
+      );
+    }
+
+    const inserted = await pool.query<DbUser>(
+      `INSERT INTO users (phone, role, name, firebase_uid)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, phone, role, name`,
+      [input.phone, input.role, input.name ?? null, input.firebaseUid]
+    );
+    userRow = inserted.rows[0];
+  }
+
+  if (!userRow) {
+    throw new AppError(500, "Failed to create user.");
+  }
+
+  if (userRow.role === "rider") {
+    await pool.query(
+      `INSERT INTO riders (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+      [userRow.id]
+    );
+  }
+
+  return {
+    id: userRow.id,
+    phone: userRow.phone,
+    role: userRow.role,
+    name: userRow.name ?? undefined
+  };
+}
+
 export async function findOrCreateDevUser(
   phone: string,
   role: UserRole,

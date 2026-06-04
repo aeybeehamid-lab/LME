@@ -53,6 +53,13 @@ export async function devLogin(phone: string, role: AppRole, name?: string) {
   });
 }
 
+export async function firebaseLogin(idToken: string, role: AppRole) {
+  return apiFetch<{ token: string }>("/auth/firebase", {
+    method: "POST",
+    body: JSON.stringify({ idToken, role })
+  });
+}
+
 export type Order = {
   id: string;
   category: string;

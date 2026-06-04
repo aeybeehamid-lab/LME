@@ -38,6 +38,16 @@ export async function devAdminLogin(phone: string) {
   });
 }
 
+export async function firebaseAdminLogin(idToken: string) {
+  return apiFetch<{ user: unknown; token: string }>("/auth/firebase", {
+    method: "POST",
+    body: JSON.stringify({
+      idToken,
+      role: "executive"
+    })
+  });
+}
+
 export async function fetchOrders(status?: string) {
   const query = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
   return apiFetch<{ orders: Array<Record<string, unknown>> }>(`/orders${query}`);

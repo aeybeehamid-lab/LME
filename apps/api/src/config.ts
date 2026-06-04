@@ -17,5 +17,8 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET ?? "dev-only-change-me",
   paystackSecretKey: process.env.PAYSTACK_SECRET_KEY ?? "",
   paystackCallbackUrl: process.env.PAYSTACK_CALLBACK_URL ?? "",
-  orderAutomationIntervalMs: Number(process.env.ORDER_AUTOMATION_INTERVAL_MS ?? "60000")
+  orderAutomationIntervalMs: Number(process.env.ORDER_AUTOMATION_INTERVAL_MS ?? "60000"),
+  firebaseProjectId: process.env.FIREBASE_PROJECT_ID ?? "",
+  firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL ?? "",
+  firebasePrivateKey: process.env.FIREBASE_PRIVATE_KEY ?? ""
 };
