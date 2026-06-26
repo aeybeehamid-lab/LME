@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
-import { DashboardNav } from "../components/DashboardNav";
+import { AuthShell } from "../components/AuthShell";
 import "./globals.css";
 
 /** Body text & UI — PRD: DM Sans */
@@ -36,8 +36,7 @@ export default function RootLayout({
     <html lang="en" className={`${dmSans.variable} ${cormorant.variable}`}>
       <body className={dmSans.className}>
         <main>
-          <DashboardNav />
-          {children}
+        <AuthShell>{children}</AuthShell>
         </main>
       </body>
     </html>

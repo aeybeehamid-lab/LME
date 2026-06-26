@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LME Build Roadmap</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      background: #080e09;
+      color: #e8efe9;
+      line-height: 1.55;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+    .card {
+      background: #0d1610;
+      border: 1px solid #1a6b2e;
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+    }
+    h1, h2 {
+      margin: 0 0 10px;
+      color: #5aad64;
+    }
+    h1 { font-size: 30px; }
+    h2 { font-size: 20px; margin-top: 8px; }
+    ul { margin: 8px 0 0 20px; padding: 0; }
+    li { margin-bottom: 6px; }
+    .muted { color: #9db9a1; }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #5aad64;
+      color: #5aad64;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    @media print {
+      body { background: #fff; color: #111; }
+      .card { border-color: #ddd; background: #fff; break-inside: avoid; }
+      h1, h2, .badge { color: #1a6b2e; }
+      .muted { color: #333; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <span class="badge">LME CTO Plan</span>
+      <h1>LME Build Roadmap</h1>
+      <p class="muted">Version 1.0 · Date: 2026-06-02 · Target: 12 weeks (range 10-15 weeks)</p>
+    </div>
+
+    <div class="card">
+      <h2>Phase 0 (Week 1): Foundations and Controls</h2>
+      <ul>
+        <li>Finalize product decisions log and architecture.</li>
+        <li>Set up repos, environments, CI, coding standards, and secrets management.</li>
+        <li>Provision Firebase, Paystack, PostgreSQL, and file storage.</li>
+        <li>Deliverable: architecture approval, schema lock, project skeletons.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Phase 1 (Weeks 2-4): Core Backend and Integrations</h2>
+      <ul>
+        <li>Implement auth/roles, orders, payments, riders, and waybills modules.</li>
+        <li>Implement Paystack webhooks with signature verification and idempotency.</li>
+        <li>Implement 10-minute escalation and 30-minute unresolved refund logic.</li>
+        <li>Deliverable: backend API v1 with tested order/payment state machine.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Phase 2 (Weeks 5-6): Rider App (Android-first)</h2>
+      <ul>
+        <li>Build job board, first-to-accept lock, active job flow.</li>
+        <li>Build status progression and mandatory proof-of-delivery upload.</li>
+        <li>Build earnings views and delivery history.</li>
+        <li>Deliverable: internal rider pilot app.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Phase 3 (Weeks 7-9): Customer App</h2>
+      <ul>
+        <li>Build onboarding, profile, saved addresses, category booking flows.</li>
+        <li>Build checkout with transparent pricing and urgent surcharge display.</li>
+        <li>Build tracking timeline, history, and complaint submission flow.</li>
+        <li>Deliverable: end-to-end customer booking and delivery lifecycle.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Phase 4 (Weeks 10-11): Executive Dashboard</h2>
+      <ul>
+        <li>Build order feed, escalations, assignment, cancellation, refunds.</li>
+        <li>Build complaints workflow and rider management.</li>
+        <li>Build finance core: money in, commissions, refunds, net.</li>
+        <li>Deliverable: launch operations command center.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Phase 5 (Week 12): Hardening and Launch</h2>
+      <ul>
+        <li>Complete QA, regression, reliability tests, and incident runbooks.</li>
+        <li>Finalize monitoring dashboards and alert routing.</li>
+        <li>Execute staged rollout and go-live checklist.</li>
+        <li>Deliverable: production launch candidate.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>GitHub Workflow</h2>
+      <ul>
+        <li>Feature branches and PRs per milestone.</li>
+        <li>At least one push per day during active development.</li>
+        <li>Conventional commits and required checks before merge.</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
+
