@@ -111,7 +111,10 @@ export function RiderApp(props: { onLogout: () => void }) {
   async function takePhoto() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Allow camera access to take proof of delivery photo.");
+      Alert.alert(
+        "Permission needed",
+        "Allow camera access to take proof of delivery photo."
+      );
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -135,7 +138,9 @@ export function RiderApp(props: { onLogout: () => void }) {
       setScreen("jobs");
       await refreshJobs();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit proof of delivery");
+      setError(
+        err instanceof Error ? err.message : "Failed to submit proof of delivery"
+      );
     } finally {
       setUploading(false);
     }
@@ -147,6 +152,148 @@ export function RiderApp(props: { onLogout: () => void }) {
         <Text style={shared.brand}>LME Rider</Text>
         {error ? <Text style={shared.error}>{error}</Text> : null}
 
-        {/* Job board */}
         {screen === "jobs" ? (
-          <View
+          <View style={shared.card}>
+            <View style={shared.row}>
+              <Text style={shared.title}>Open jobs</Text>
+              <Pressable onPress={props.onLogout}>
+                <Text style={shared.link}>Logout</Text>
+              </Pressable>
+            </View>
+            {loading ? <ActivityIndicator color="#5AAD64" /> : null}
+            {!openJobs.length && !loading ? (
+              <Text style={shared.muted}>No jobs on the board right now.</Text>
+            ) : null}
+            {openJobs.map((job) => (
+              <View
+                key={job.id}
+                style={{
+                  marginTop: 12,
+                  paddingTop: 12,
+                  borderTopWidth: 1,
+                  borderTopColor: "#111D13"
+                }}
+              >
+                <Text
+                  style={[
+                    shared.body,
+                    { fontFamily: "DMSans_500Medium", textTransform: "capitalize" }
+                  ]}
+                >
+                  {job.category}
+                </Text>
+                <Text style={shared.muted}>{job.pickupAddress}</Text>
+                <Text style={shared.muted}>→ {job.dropoffAddress}</Text>
+                <Text style={[shared.muted, { color: "#C8A96E" }]}>
+                  ₦{(job.deliveryFeeKobo / 100).toLocaleString("en-NG")} · You earn ₦
+                  {(
+                    (job.riderCommissionKobo ?? job.deliveryFeeKobo * 0.25) / 100
+                  ).toLocaleString("en-NG")}
+                </Text>
+                <Pressable
+                  style={shared.btn}
+                  onPress={() => onAccept(job.id)}
+                  disabled={loading}
+                >
+                  <Text style={shared.btnText}>Accept</Text>
+                </Pressable>
+              </View>
+            ))}
+            <Pressable style={shared.btnSecondary} onPress={refreshJobs}>
+              <Text style={shared.btnText}>Refresh</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {screen === "active" && activeOrder ? (
+          <View style={shared.card}>
+            <Text style={shared.title}>Active delivery</Text>
+            <Text style={shared.muted}>
+              {activeOrder.category} · {activeOrder.status}
+            </Text>
+            <Text style={shared.body}>{activeOrder.pickupAddress}</Text>
+            <Text style={shared.body}>→ {activeOrder.dropoffAddress}</Text>
+            {(["picked_up", "en_route"] as const).map((status) => (
+              <Pressable
+                key={status}
+                style={shared.btn}
+                onPress={() => onStatus(status)}
+                disabled={loading}
+              >
+                <Text style={shared.btnText}>
+                  Mark {status.replace("_", " ")}
+                </Text>
+              </Pressable>
+            ))}
+            {activeOrder.status === "en_route" ? (
+              <Pressable
+                style={[shared.btn, { backgroundColor: "#1a6b2e" }]}
+                onPress={() => onStatus("delivered")}
+                disabled={loading}
+              >
+                <Text style={shared.btnText}>Mark delivered — upload photo</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={shared.btnSecondary} onPress={refreshJobs}>
+              <Text style={shared.btnText}>Refresh</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {screen === "pod" && activeOrder ? (
+          <View style={shared.card}>
+            <Text style={shared.title}>Proof of delivery</Text>
+            <Text style={shared.muted}>
+              Take or upload a photo confirming delivery at{" "}
+              {activeOrder.dropoffAddress}.
+            </Text>
+            {podUri ? (
+              <Image
+                source={{ uri: podUri }}
+                style={{
+                  width: "100%",
+                  height: 220,
+                  borderRadius: 10,
+                  marginTop: 12
+                }}
+                resizeMode="cover"
+              />
+            ) : null}
+            <Pressable
+              style={[shared.btn, { marginTop: 16 }]}
+              onPress={takePhoto}
+              disabled={uploading}
+            >
+              <Text style={shared.btnText}>Take photo</Text>
+            </Pressable>
+            <Pressable
+              style={shared.btnSecondary}
+              onPress={pickPhoto}
+              disabled={uploading}
+            >
+              <Text style={shared.btnText}>Choose from gallery</Text>
+            </Pressable>
+            {podUri ? (
+              <Pressable
+                style={[shared.btn, { backgroundColor: "#1a6b2e", marginTop: 8 }]}
+                onPress={submitPod}
+                disabled={uploading}
+              >
+                <Text style={shared.btnText}>
+                  {uploading ? "Submitting..." : "Submit and complete delivery"}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={shared.btnSecondary}
+              onPress={() => setScreen("active")}
+              disabled={uploading}
+            >
+              <Text style={shared.btnText}>Back</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
