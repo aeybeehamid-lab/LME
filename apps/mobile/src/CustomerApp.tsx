@@ -8,11 +8,20 @@ import {
   TextInput,
   View
 } from "react-native";
-import { createOrder, fetchMyOrders, Order, submitComplaint } from "./api";
+import {
+  createOrder,
+  fetchMyOrders,
+  fetchSavedAddresses,
+  saveAddress,
+  deleteSavedAddress,
+  Order,
+  SavedAddress,
+  submitComplaint
+} from "./api";
 import { completeOrderPayment } from "./paystack";
 import { shared } from "./styles";
 
-type Screen = "book" | "orders" | "track" | "complaint";
+type Screen = "book" | "orders" | "track" | "complaint" | "addresses";
 
 const categories = ["gadgets", "food", "grocery", "laundry", "other"] as const;
 
@@ -35,6 +44,9 @@ export function CustomerApp(props: { onLogout: () => void }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [complaintForm, setComplaintForm] = useState({ subject: "", description: "" });
   const [complaintSent, setComplaintSent] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [newAddressForm, setNewAddressForm] = useState({ label: "", address: "" });
+  const [savingAddress, setSavingAddress] = useState(false);
   const [form, setForm] = useState({
     category: "gadgets" as (typeof categories)[number],
     feeNaira: "1200",
@@ -56,8 +68,18 @@ export function CustomerApp(props: { onLogout: () => void }) {
     }
   }
 
+  async function loadAddresses() {
+    try {
+      const data = await fetchSavedAddresses();
+      setSavedAddresses(data.addresses);
+    } catch {
+      // silent — addresses are a convenience feature
+    }
+  }
+
   useEffect(() => {
     void loadOrders();
+    void loadAddresses();
   }, []);
 
   async function payForOrder(order: Order) {
@@ -143,12 +165,43 @@ export function CustomerApp(props: { onLogout: () => void }) {
     }
   }
 
+  async function onSaveAddress() {
+    if (!newAddressForm.label.trim() || !newAddressForm.address.trim()) {
+      setError("Label and address are required.");
+      return;
+    }
+    setSavingAddress(true);
+    setError("");
+    try {
+      await saveAddress({
+        label: newAddressForm.label.trim(),
+        address: newAddressForm.address.trim()
+      });
+      setNewAddressForm({ label: "", address: "" });
+      setMessage("Address saved.");
+      await loadAddresses();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save address");
+    } finally {
+      setSavingAddress(false);
+    }
+  }
+
+  async function onDeleteAddress(id: string) {
+    try {
+      await deleteSavedAddress(id);
+      await loadAddresses();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete address");
+    }
+  }
+
   return (
     <SafeAreaView style={shared.safe}>
       <ScrollView contentContainerStyle={shared.scroll}>
         <Text style={shared.brand}>LME</Text>
         <View style={shared.roleRow}>
-          {(["book", "orders", "track", "complaint"] as const).map((tab) => (
+          {(["book", "orders", "track", "addresses"] as const).map((tab) => (
             <Pressable
               key={tab}
               style={[shared.roleChip, screen === tab && shared.roleChipActive]}
@@ -200,18 +253,67 @@ export function CustomerApp(props: { onLogout: () => void }) {
               onChangeText={(v: string) => setForm((f) => ({ ...f, feeNaira: v }))}
               keyboardType="numeric"
             />
+
             <Text style={shared.label}>Pickup address</Text>
+            {savedAddresses.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
+                <View style={{ flexDirection: "row", gap: 6 }}>
+                  {savedAddresses.map((a) => (
+                    <Pressable
+                      key={a.id}
+                      onPress={() => setForm((f) => ({ ...f, pickup: a.address }))}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: form.pickup === a.address ? "#5AAD64" : "#1a2e1c",
+                        backgroundColor: form.pickup === a.address ? "#0d2410" : "transparent"
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, color: "#5AAD64" }}>{a.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            ) : null}
             <TextInput
               style={shared.input}
               value={form.pickup}
               onChangeText={(v: string) => setForm((f) => ({ ...f, pickup: v }))}
+              placeholder="Enter or select a saved address"
             />
+
             <Text style={shared.label}>Dropoff address</Text>
+            {savedAddresses.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
+                <View style={{ flexDirection: "row", gap: 6 }}>
+                  {savedAddresses.map((a) => (
+                    <Pressable
+                      key={a.id}
+                      onPress={() => setForm((f) => ({ ...f, dropoff: a.address }))}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: form.dropoff === a.address ? "#5AAD64" : "#1a2e1c",
+                        backgroundColor: form.dropoff === a.address ? "#0d2410" : "transparent"
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, color: "#5AAD64" }}>{a.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            ) : null}
             <TextInput
               style={shared.input}
               value={form.dropoff}
               onChangeText={(v: string) => setForm((f) => ({ ...f, dropoff: v }))}
+              placeholder="Enter or select a saved address"
             />
+
             <Text style={shared.label}>Item description (optional)</Text>
             <TextInput
               style={shared.input}
@@ -335,6 +437,72 @@ export function CustomerApp(props: { onLogout: () => void }) {
           <Text style={shared.muted}>
             Select an order from My orders to track.
           </Text>
+        ) : null}
+
+        {/* Saved addresses */}
+        {screen === "addresses" ? (
+          <View style={shared.card}>
+            <Text style={shared.title}>Saved addresses</Text>
+            <Text style={shared.muted}>
+              Save up to 10 addresses for quick selection when booking.
+            </Text>
+
+            {savedAddresses.length === 0 ? (
+              <Text style={[shared.muted, { marginTop: 8 }]}>
+                No saved addresses yet.
+              </Text>
+            ) : null}
+
+            {savedAddresses.map((a) => (
+              <View
+                key={a.id}
+                style={{
+                  marginTop: 12,
+                  paddingTop: 12,
+                  borderTopWidth: 1,
+                  borderTopColor: "#111D13",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start"
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <Text style={[shared.body, { fontWeight: "500" }]}>{a.label}</Text>
+                  <Text style={shared.muted}>{a.address}</Text>
+                </View>
+                <Pressable onPress={() => onDeleteAddress(a.id)}>
+                  <Text style={[shared.link, { color: "#c0392b" }]}>Delete</Text>
+                </Pressable>
+              </View>
+            ))}
+
+            <Text style={[shared.label, { marginTop: 20 }]}>Add new address</Text>
+            <TextInput
+              style={shared.input}
+              placeholder="Label (e.g. Home, Office)"
+              value={newAddressForm.label}
+              onChangeText={(v: string) =>
+                setNewAddressForm((f) => ({ ...f, label: v }))
+              }
+            />
+            <TextInput
+              style={shared.input}
+              placeholder="Full address"
+              value={newAddressForm.address}
+              onChangeText={(v: string) =>
+                setNewAddressForm((f) => ({ ...f, address: v }))
+              }
+            />
+            <Pressable
+              style={shared.btn}
+              onPress={onSaveAddress}
+              disabled={savingAddress}
+            >
+              <Text style={shared.btnText}>
+                {savingAddress ? "Saving..." : "Save address"}
+              </Text>
+            </Pressable>
+          </View>
         ) : null}
 
         {/* Complaint */}

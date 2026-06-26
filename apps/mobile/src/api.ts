@@ -232,3 +232,28 @@ export async function submitComplaint(input: {
 export async function fetchMyComplaints() {
   return apiFetch<{ complaints: Complaint[] }>("/complaints/mine");
 }
+// ── Saved addresses ─────────────────────────────────────────────────────────
+
+export type SavedAddress = {
+  id: string;
+  label: string;
+  address: string;
+  createdAt: string;
+};
+
+export async function fetchSavedAddresses() {
+  return apiFetch<{ addresses: SavedAddress[] }>("/addresses");
+}
+
+export async function saveAddress(input: { label: string; address: string }) {
+  return apiFetch<{ address: SavedAddress }>("/addresses", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function deleteSavedAddress(addressId: string) {
+  return apiFetch<{ ok: boolean }>(`/addresses/${addressId}`, {
+    method: "DELETE"
+  });
+}

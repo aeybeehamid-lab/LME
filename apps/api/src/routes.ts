@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { addressRoutes } from "./modules/addresses/address.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { orderRoutes } from "./modules/orders/order.routes";
 import { podRoutes } from "./modules/orders/pod.routes";
@@ -22,3 +23,4 @@ apiRouter.use("/finance", financeRoutes);
 apiRouter.use("/notifications", notificationRoutes);
 apiRouter.use("/complaints", complaintRoutes);
 apiRouter.use("/pricing", pricingRoutes);
+apiRouter.use("/addresses", addressRoutes);
