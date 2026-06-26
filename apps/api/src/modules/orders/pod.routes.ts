@@ -4,7 +4,11 @@ import path from "path";
 import fs from "fs";
 import { pool } from "../../db";
 import { AppError } from "../../middleware/errorHandler";
-import { AuthenticatedRequest, requireAuth, requireRoles } from "../../middleware/auth";
+import {
+  AuthenticatedRequest,
+  requireAuth,
+  requireRoles
+} from "../../middleware/auth";
 
 const router = Router();
 
@@ -27,7 +31,13 @@ const upload = multer({
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new AppError(400, "Only JPEG, PNG, or WebP images are accepted.", "INVALID_FILE_TYPE"));
+      cb(
+        new AppError(
+          400,
+          "Only JPEG, PNG, or WebP images are accepted.",
+          "INVALID_FILE_TYPE"
+        )
+      );
     }
   }
 });
@@ -40,7 +50,11 @@ router.post(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       if (!req.file) {
-        throw new AppError(400, "A photo is required for proof of delivery.", "MISSING_FILE");
+        throw new AppError(
+          400,
+          "A photo is required for proof of delivery.",
+          "MISSING_FILE"
+        );
       }
 
       const { orderId } = req.params;
@@ -53,10 +67,22 @@ router.post(
       );
       const order = result.rows[0];
 
-      if (!order) throw new AppError(404, "Order not found.", "NOT_FOUND");
-      if (order.rider_id !== riderId) throw new AppError(403, "This order is not assigned to you.", "FORBIDDEN");
+      if (!order) {
+        throw new AppError(404, "Order not found.", "NOT_FOUND");
+      }
+      if (order.rider_id !== riderId) {
+        throw new AppError(
+          403,
+          "This order is not assigned to you.",
+          "FORBIDDEN"
+        );
+      }
       if (order.status !== "en_route") {
-        throw new AppError(400, `Cannot upload POD — order is currently ${order.status}. Must be en_route.`, "INVALID_STATUS");
+        throw new AppError(
+          400,
+          `Cannot upload POD — order is currently ${order.status}. Must be en_route.`,
+          "INVALID_STATUS"
+        );
       }
 
       await pool.query(
@@ -71,20 +97,28 @@ router.post(
   }
 );
 
-router.get("/:orderId/proof-of-delivery", requireAuth, async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const result = await pool.query(
-      `SELECT pod_url FROM orders WHERE id = $1`,
-      [req.params.orderId]
-    );
-    const order = result.rows[0];
-    if (!order || !order.pod_url) {
-      throw new AppError(404, "No proof of delivery found for this order.", "NOT_FOUND");
+router.get(
+  "/:orderId/proof-of-delivery",
+  requireAuth,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const result = await pool.query(
+        `SELECT pod_url FROM orders WHERE id = $1`,
+        [req.params.orderId]
+      );
+      const order = result.rows[0];
+      if (!order || !order.pod_url) {
+        throw new AppError(
+          404,
+          "No proof of delivery found for this order.",
+          "NOT_FOUND"
+        );
+      }
+      res.json({ podUrl: order.pod_url });
+    } catch (err) {
+      next(err);
     }
-    res.json({ podUrl: order.pod_url });
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 export const podRoutes = router;
