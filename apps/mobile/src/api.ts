@@ -164,3 +164,27 @@ export async function updateJobStatus(
     body: JSON.stringify({ toStatus, reason: `Rider marked ${toStatus}` })
   });
 }
+
+export async function uploadProofOfDelivery(orderId: string, photoUri: string) {
+  const token = await getToken();
+  const formData = new FormData();
+  formData.append("photo", {
+    uri: photoUri,
+    name: "pod.jpg",
+    type: "image/jpeg"
+  } as unknown as Blob);
+
+  const response = await fetch(`${API_BASE}/orders/${orderId}/proof-of-delivery`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token ?? ""}`,
+      "Content-Type": "multipart/form-data"
+    },
+    body: formData
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error?.message ?? "Failed to upload proof of delivery");
+  }
+  return data as { ok: boolean; podUrl: string };
+}
