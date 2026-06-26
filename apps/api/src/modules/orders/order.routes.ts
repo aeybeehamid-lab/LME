@@ -20,6 +20,9 @@ const createOrderSchema = z.object({
   category: z.enum(["gadgets", "food", "grocery", "laundry", "other"]),
   deliveryFeeKobo: z.number().int().positive(),
   urgentMultiplier: z.number().min(1).max(2).optional(),
+  gadgetType: z.enum(["phone", "laptop", "other"]).optional(),
+  orderValueKobo: z.number().int().nonnegative().optional(),
+  urgent: z.boolean().optional(),
   pickupAddress: z.string().min(3),
   dropoffAddress: z.string().min(3),
   itemDescription: z.string().optional()
@@ -47,9 +50,25 @@ router.use(requireAuth);
 router.post("/", requireRoles("customer", "executive", "ops_assistant"), async (req: AuthenticatedRequest, res, next) => {
   try {
     const body = createOrderSchema.parse(req.body);
+    const role = req.user!.role;
+    const isStaff = role === "executive" || role === "ops_assistant";
+
     const order = await createOrder({
       customerId: req.user!.id,
-      ...body
+      category: body.category,
+      deliveryFeeKobo: body.deliveryFeeKobo,
+      urgentMultiplier: body.urgentMultiplier,
+      pickupAddress: body.pickupAddress,
+      dropoffAddress: body.dropoffAddress,
+      itemDescription: body.itemDescription,
+      skipFeeValidation: isStaff,
+      pricingInput: isStaff
+        ? undefined
+        : {
+            gadgetType: body.gadgetType,
+            orderValueKobo: body.orderValueKobo,
+            urgent: body.urgent
+          }
     });
     res.status(201).json({ order });
   } catch (err) {

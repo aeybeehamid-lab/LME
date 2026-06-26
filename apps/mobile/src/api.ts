@@ -93,11 +93,29 @@ export async function createOrder(input: {
   pickupAddress: string;
   dropoffAddress: string;
   itemDescription?: string;
+  gadgetType?: "phone" | "laptop" | "other";
+  orderValueKobo?: number;
+  urgent?: boolean;
 }) {
   return apiFetch<{ order: Order }>("/orders", {
     method: "POST",
     body: JSON.stringify(input)
   });
+}
+
+export async function quoteDeliveryFee(input: {
+  category: string;
+  gadgetType?: string;
+  orderValueKobo?: number;
+  urgent?: boolean;
+}) {
+  return apiFetch<{ deliveryFeeKobo: number; urgentMultiplier: number }>(
+    "/pricing/quote",
+    {
+      method: "POST",
+      body: JSON.stringify(input)
+    }
+  );
 }
 
 export type PaymentInit = {

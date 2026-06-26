@@ -237,3 +237,42 @@ export async function fetchOrderEvents(orderId: string) {
     }>;
   }>(`/orders/${orderId}/events`);
 }
+
+export type PricingConfig = {
+  gadgets: {
+    phone: { minKobo: number; maxKobo: number };
+    laptop: { minKobo: number; maxKobo: number };
+    other: { minKobo: number; maxKobo: number };
+  };
+  grocery: { baseKobo: number; percentBps: number };
+  food: { baseKobo: number };
+  laundry: { baseKobo: number };
+  other: { baseKobo: number };
+  urgent: { minMultiplier: number; maxMultiplier: number };
+};
+
+export async function fetchPricing() {
+  return apiFetch<{ pricing: PricingConfig }>("/pricing");
+}
+
+export async function updatePricing(patch: Partial<PricingConfig>) {
+  return apiFetch<{ pricing: PricingConfig }>("/pricing", {
+    method: "PATCH",
+    body: JSON.stringify(patch)
+  });
+}
+
+export async function quoteDeliveryFee(input: {
+  category: string;
+  gadgetType?: string;
+  orderValueKobo?: number;
+  urgent?: boolean;
+}) {
+  return apiFetch<{ deliveryFeeKobo: number; urgentMultiplier: number }>(
+    "/pricing/quote",
+    {
+      method: "POST",
+      body: JSON.stringify(input)
+    }
+  );
+}

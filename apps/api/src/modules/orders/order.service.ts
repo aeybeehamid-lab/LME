@@ -10,6 +10,7 @@ import { AppError } from "../../middleware/errorHandler";
 import { assertValidTransition } from "./order.state-machine";
 import { assertRoleCanTransition } from "./order.transition-policy";
 import { notifyOrderStatusChange } from "../notifications/notification.service";
+import { assertCustomerDeliveryFee } from "../pricing/pricing.service";
 
 interface DbOrder {
   id: string;
@@ -72,7 +73,28 @@ export async function createOrder(input: {
   pickupAddress: string;
   dropoffAddress: string;
   itemDescription?: string;
+  skipFeeValidation?: boolean;
+  pricingInput?: {
+    gadgetType?: "phone" | "laptop" | "other";
+    orderValueKobo?: number;
+    urgent?: boolean;
+  };
 }) {
+  let feeKobo = input.deliveryFeeKobo;
+  let urgentMultiplier = input.urgentMultiplier ?? 1;
+
+  if (!input.skipFeeValidation && input.pricingInput) {
+    const validated = await assertCustomerDeliveryFee({
+      category: input.category,
+      gadgetType: input.pricingInput.gadgetType,
+      orderValueKobo: input.pricingInput.orderValueKobo,
+      urgent: input.pricingInput.urgent,
+      deliveryFeeKobo: input.deliveryFeeKobo
+    });
+    feeKobo = validated.deliveryFeeKobo;
+    urgentMultiplier = validated.urgentMultiplier;
+  }
+
   const result = await pool.query<DbOrder>(
     `INSERT INTO orders (
       customer_id, category, status, delivery_fee_kobo, urgent_multiplier,
@@ -82,8 +104,8 @@ export async function createOrder(input: {
     [
       input.customerId,
       input.category,
-      input.deliveryFeeKobo,
-      input.urgentMultiplier ?? 1,
+      feeKobo,
+      urgentMultiplier,
       input.pickupAddress,
       input.dropoffAddress,
       input.itemDescription ?? null

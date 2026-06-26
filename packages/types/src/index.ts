@@ -74,3 +74,5 @@ export function riderCommissionKobo(deliveryFeeKobo: number): number {
 export function lmeRevenueKobo(deliveryFeeKobo: number): number {
   return Math.round(deliveryFeeKobo * 0.75);
 }
+
+export * from "./pricing";

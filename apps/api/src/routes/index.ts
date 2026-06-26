@@ -1,4 +1,5 @@
 import { podRoutes } from "../modules/orders/pod.routes";
+import { complaintRoutes } from "../modules/complaints/complaint.routes";
 import { Router } from "express";
 import { authRoutes } from "../modules/auth/auth.routes";
 import { orderRoutes } from "../modules/orders/order.routes";
@@ -7,6 +8,7 @@ import { paymentRoutes } from "../modules/payments/payment.routes";
 import { riderRoutes } from "../modules/riders/rider.routes";
 import { financeRoutes } from "../modules/finance/finance.routes";
 import { notificationRoutes } from "../modules/notifications/notification.routes";
+import { pricingRoutes } from "../modules/pricing/pricing.routes";
 
 export const apiRouter = Router();
 
@@ -18,3 +20,5 @@ apiRouter.use("/payments", paymentRoutes);
 apiRouter.use("/riders", riderRoutes);
 apiRouter.use("/finance", financeRoutes);
 apiRouter.use("/notifications", notificationRoutes);
+apiRouter.use("/pricing", pricingRoutes);
+apiRouter.use("/complaints", complaintRoutes);

@@ -33,7 +33,8 @@ describe("orders integration", () => {
       .set("Authorization", `Bearer ${customer.token}`)
       .send({
         category: "gadgets",
-        deliveryFeeKobo: 1200 * 100,
+        gadgetType: "phone",
+        deliveryFeeKobo: 140_000,
         pickupAddress: "Terminus Market, Jos",
         dropoffAddress: "Rwang Pam, Jos",
         itemDescription: "Test device"
