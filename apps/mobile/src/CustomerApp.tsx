@@ -4,19 +4,17 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   View
 } from "react-native";
-import { createOrder, fetchMyOrders, Order, quoteDeliveryFee } from "./api";
+import { createOrder, fetchMyOrders, Order, submitComplaint } from "./api";
 import { completeOrderPayment } from "./paystack";
 import { shared } from "./styles";
 
-type Screen = "book" | "orders" | "track";
+type Screen = "book" | "orders" | "track" | "complaint";
 
 const categories = ["gadgets", "food", "grocery", "laundry", "other"] as const;
-const gadgetTypes = ["phone", "laptop", "other"] as const;
 
 const paidStatuses = new Set([
   "payment_confirmed",
@@ -27,25 +25,19 @@ const paidStatuses = new Set([
   "delivered"
 ]);
 
-function formatNaira(kobo: number) {
-  return `₦${(kobo / 100).toLocaleString("en-NG")}`;
-}
-
 export function CustomerApp(props: { onLogout: () => void }) {
   const [screen, setScreen] = useState<Screen>("book");
   const [loading, setLoading] = useState(false);
-  const [quoting, setQuoting] = useState(false);
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [quotedFeeKobo, setQuotedFeeKobo] = useState(0);
+  const [complaintForm, setComplaintForm] = useState({ subject: "", description: "" });
+  const [complaintSent, setComplaintSent] = useState(false);
   const [form, setForm] = useState({
     category: "gadgets" as (typeof categories)[number],
-    gadgetType: "phone" as (typeof gadgetTypes)[number],
-    orderValueNaira: "5000",
-    urgent: false,
+    feeNaira: "1200",
     pickup: "",
     dropoff: "",
     description: ""
@@ -64,34 +56,9 @@ export function CustomerApp(props: { onLogout: () => void }) {
     }
   }
 
-  async function refreshQuote() {
-    setQuoting(true);
-    try {
-      const orderValueKobo =
-        form.category === "grocery"
-          ? Math.round(Number(form.orderValueNaira) * 100) || 0
-          : undefined;
-      const quote = await quoteDeliveryFee({
-        category: form.category,
-        gadgetType: form.category === "gadgets" ? form.gadgetType : undefined,
-        orderValueKobo,
-        urgent: form.urgent
-      });
-      setQuotedFeeKobo(quote.deliveryFeeKobo);
-    } catch {
-      setQuotedFeeKobo(0);
-    } finally {
-      setQuoting(false);
-    }
-  }
-
   useEffect(() => {
     void loadOrders();
   }, []);
-
-  useEffect(() => {
-    void refreshQuote();
-  }, [form.category, form.gadgetType, form.orderValueNaira, form.urgent]);
 
   async function payForOrder(order: Order) {
     setPayingOrderId(order.id);
@@ -120,24 +87,17 @@ export function CustomerApp(props: { onLogout: () => void }) {
       setError("Pickup and dropoff addresses are required.");
       return;
     }
-    if (!quotedFeeKobo) {
-      setError("Could not calculate delivery fee. Check your connection.");
-      return;
-    }
     setLoading(true);
     setError("");
     setMessage("");
     try {
-      const orderValueKobo =
-        form.category === "grocery"
-          ? Math.round(Number(form.orderValueNaira) * 100) || 0
-          : undefined;
+      const fee = Math.round(Number(form.feeNaira) * 100);
+      if (!Number.isFinite(fee) || fee <= 0) {
+        throw new Error("Enter a valid delivery fee in Naira.");
+      }
       const { order } = await createOrder({
         category: form.category,
-        deliveryFeeKobo: quotedFeeKobo,
-        gadgetType: form.category === "gadgets" ? form.gadgetType : undefined,
-        orderValueKobo,
-        urgent: form.urgent,
+        deliveryFeeKobo: fee,
         pickupAddress: form.pickup.trim(),
         dropoffAddress: form.dropoff.trim(),
         itemDescription: form.description.trim() || undefined
@@ -159,18 +119,42 @@ export function CustomerApp(props: { onLogout: () => void }) {
     }
   }
 
+  async function onSubmitComplaint() {
+    if (!selectedOrder) return;
+    if (!complaintForm.subject.trim() || !complaintForm.description.trim()) {
+      setError("Subject and description are required.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await submitComplaint({
+        orderId: selectedOrder.id,
+        subject: complaintForm.subject.trim(),
+        description: complaintForm.description.trim()
+      });
+      setComplaintSent(true);
+      setComplaintForm({ subject: "", description: "" });
+      setMessage("Complaint submitted. Our team will review it shortly.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit complaint");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={shared.safe}>
       <ScrollView contentContainerStyle={shared.scroll}>
         <Text style={shared.brand}>LME</Text>
         <View style={shared.roleRow}>
-          {(["book", "orders", "track"] as const).map((tab) => (
+          {(["book", "orders", "track", "complaint"] as const).map((tab) => (
             <Pressable
               key={tab}
               style={[shared.roleChip, screen === tab && shared.roleChipActive]}
               onPress={() => {
                 setScreen(tab);
-                setSelectedOrder(null);
+                if (tab !== "complaint") setComplaintSent(false);
               }}
             >
               <Text style={shared.roleChipText}>{tab}</Text>
@@ -182,13 +166,16 @@ export function CustomerApp(props: { onLogout: () => void }) {
         </Pressable>
 
         {error ? <Text style={shared.error}>{error}</Text> : null}
-        {message ? <Text style={[shared.muted, { color: "#5AAD64" }]}>{message}</Text> : null}
+        {message ? (
+          <Text style={[shared.muted, { color: "#5AAD64" }]}>{message}</Text>
+        ) : null}
 
+        {/* Book */}
         {screen === "book" ? (
           <View style={shared.card}>
             <Text style={shared.title}>Book a delivery</Text>
             <Text style={shared.muted}>
-              Fees are set by LME admin and shown before you pay.
+              You pay upfront via Paystack before the order goes to riders.
             </Text>
             <Text style={shared.label}>Category</Text>
             <View style={[shared.roleRow, { flexWrap: "wrap" }]}>
@@ -206,69 +193,13 @@ export function CustomerApp(props: { onLogout: () => void }) {
                 </Pressable>
               ))}
             </View>
-
-            {form.category === "gadgets" ? (
-              <>
-                <Text style={shared.label}>Gadget type</Text>
-                <View style={shared.roleRow}>
-                  {gadgetTypes.map((g) => (
-                    <Pressable
-                      key={g}
-                      style={[
-                        shared.roleChip,
-                        form.gadgetType === g && shared.roleChipActive
-                      ]}
-                      onPress={() => setForm((f) => ({ ...f, gadgetType: g }))}
-                    >
-                      <Text style={shared.roleChipText}>{g}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </>
-            ) : null}
-
-            {form.category === "grocery" ? (
-              <>
-                <Text style={shared.label}>Estimated order value (NGN)</Text>
-                <TextInput
-                  style={shared.input}
-                  value={form.orderValueNaira}
-                  onChangeText={(v: string) => setForm((f) => ({ ...f, orderValueNaira: v }))}
-                  keyboardType="numeric"
-                />
-              </>
-            ) : null}
-
-            <View style={[shared.row, { marginTop: 8, marginBottom: 8 }]}>
-              <Text style={shared.body}>Urgent delivery</Text>
-              <Switch
-                value={form.urgent}
-                onValueChange={(urgent) => setForm((f) => ({ ...f, urgent }))}
-                trackColor={{ false: "#111D13", true: "#1A6B2E" }}
-                thumbColor={form.urgent ? "#5AAD64" : "#6B8A6E"}
-              />
-            </View>
-
-            <View
-              style={{
-                backgroundColor: "#111D13",
-                borderRadius: 12,
-                padding: 12,
-                marginBottom: 12,
-                borderWidth: 1,
-                borderColor: "#1A6B2E"
-              }}
-            >
-              <Text style={shared.muted}>Delivery fee</Text>
-              {quoting ? (
-                <ActivityIndicator color="#5AAD64" style={{ marginTop: 8 }} />
-              ) : (
-                <Text style={[shared.title, { marginBottom: 0 }]}>
-                  {formatNaira(quotedFeeKobo)}
-                </Text>
-              )}
-            </View>
-
+            <Text style={shared.label}>Delivery fee (NGN)</Text>
+            <TextInput
+              style={shared.input}
+              value={form.feeNaira}
+              onChangeText={(v: string) => setForm((f) => ({ ...f, feeNaira: v }))}
+              keyboardType="numeric"
+            />
             <Text style={shared.label}>Pickup address</Text>
             <TextInput
               style={shared.input}
@@ -290,7 +221,7 @@ export function CustomerApp(props: { onLogout: () => void }) {
             <Pressable
               style={shared.btn}
               onPress={onBook}
-              disabled={loading || quoting || Boolean(payingOrderId)}
+              disabled={loading || Boolean(payingOrderId)}
             >
               <Text style={shared.btnText}>
                 {loading ? "Working..." : "Book & pay with Paystack"}
@@ -299,6 +230,7 @@ export function CustomerApp(props: { onLogout: () => void }) {
           </View>
         ) : null}
 
+        {/* Orders */}
         {screen === "orders" ? (
           <View style={shared.card}>
             <Text style={shared.title}>My orders</Text>
@@ -329,7 +261,9 @@ export function CustomerApp(props: { onLogout: () => void }) {
                     <Text style={shared.body}>
                       {o.category} · {o.status}
                     </Text>
-                    <Text style={shared.muted}>{formatNaira(o.deliveryFeeKobo)}</Text>
+                    <Text style={shared.muted}>
+                      ₦{(o.deliveryFeeKobo / 100).toLocaleString("en-NG")}
+                    </Text>
                   </Pressable>
                   {needsPayment ? (
                     <Pressable
@@ -356,6 +290,7 @@ export function CustomerApp(props: { onLogout: () => void }) {
           </View>
         ) : null}
 
+        {/* Track */}
         {screen === "track" && selectedOrder ? (
           <View style={shared.card}>
             <Text style={shared.title}>Order status</Text>
@@ -374,20 +309,98 @@ export function CustomerApp(props: { onLogout: () => void }) {
                 onPress={() => void payForOrder(selectedOrder)}
               >
                 <Text style={shared.btnText}>
-                  {payingOrderId === selectedOrder.id
-                    ? "Paying..."
-                    : "Pay with Paystack"}
+                  {payingOrderId === selectedOrder.id ? "Paying..." : "Pay with Paystack"}
                 </Text>
               </Pressable>
             ) : null}
-            <Pressable style={shared.btnSecondary} onPress={() => setScreen("orders")}>
+            <Pressable
+              style={[shared.btnSecondary, { marginTop: 8 }]}
+              onPress={() => {
+                setComplaintSent(false);
+                setScreen("complaint");
+              }}
+            >
+              <Text style={shared.btnText}>Report a problem</Text>
+            </Pressable>
+            <Pressable
+              style={shared.btnSecondary}
+              onPress={() => setScreen("orders")}
+            >
               <Text style={shared.btnText}>Back to orders</Text>
             </Pressable>
           </View>
         ) : null}
 
         {screen === "track" && !selectedOrder ? (
-          <Text style={shared.muted}>Select an order from My orders to track.</Text>
+          <Text style={shared.muted}>
+            Select an order from My orders to track.
+          </Text>
+        ) : null}
+
+        {/* Complaint */}
+        {screen === "complaint" && selectedOrder ? (
+          <View style={shared.card}>
+            <Text style={shared.title}>Report a problem</Text>
+            <Text style={shared.muted}>
+              Order {selectedOrder.id.slice(0, 8)}... · {selectedOrder.category}
+            </Text>
+            {complaintSent ? (
+              <>
+                <Text style={[shared.body, { color: "#5AAD64", marginTop: 12 }]}>
+                  ✓ Complaint submitted. Our team will review it shortly.
+                </Text>
+                <Pressable
+                  style={shared.btnSecondary}
+                  onPress={() => setScreen("track")}
+                >
+                  <Text style={shared.btnText}>Back to order</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={shared.label}>Subject</Text>
+                <TextInput
+                  style={shared.input}
+                  placeholder="e.g. Item not delivered"
+                  value={complaintForm.subject}
+                  onChangeText={(v: string) =>
+                    setComplaintForm((f) => ({ ...f, subject: v }))
+                  }
+                />
+                <Text style={shared.label}>Description</Text>
+                <TextInput
+                  style={[shared.input, { height: 100, textAlignVertical: "top" }]}
+                  placeholder="Describe what went wrong..."
+                  value={complaintForm.description}
+                  onChangeText={(v: string) =>
+                    setComplaintForm((f) => ({ ...f, description: v }))
+                  }
+                  multiline
+                />
+                <Pressable
+                  style={shared.btn}
+                  onPress={onSubmitComplaint}
+                  disabled={loading}
+                >
+                  <Text style={shared.btnText}>
+                    {loading ? "Submitting..." : "Submit complaint"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={shared.btnSecondary}
+                  onPress={() => setScreen("track")}
+                >
+                  <Text style={shared.btnText}>Cancel</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        ) : null}
+
+        {screen === "complaint" && !selectedOrder ? (
+          <Text style={shared.muted}>
+            Go to an order first to report a problem.
+          </Text>
         ) : null}
       </ScrollView>
     </SafeAreaView>

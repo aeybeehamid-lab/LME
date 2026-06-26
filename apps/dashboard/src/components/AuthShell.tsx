@@ -9,6 +9,7 @@ const navLinks = [
   { href: "/orders", label: "Orders" },
   { href: "/finance", label: "Finance" },
   { href: "/riders", label: "Riders" },
+  { href: "/complaints", label: "Complaints" },
 ];
 
 export function AuthShell({ children }: { children: React.ReactNode }) {

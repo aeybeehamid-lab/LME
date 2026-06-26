@@ -206,3 +206,29 @@ export async function uploadProofOfDelivery(orderId: string, photoUri: string) {
   }
   return data as { ok: boolean; podUrl: string };
 }
+// ── Complaints ──────────────────────────────────────────────────────────────
+
+export type Complaint = {
+  id: string;
+  orderId: string;
+  subject: string;
+  description: string;
+  status: "open" | "in_review" | "resolved";
+  resolutionNote?: string;
+  createdAt: string;
+};
+
+export async function submitComplaint(input: {
+  orderId: string;
+  subject: string;
+  description: string;
+}) {
+  return apiFetch<{ complaint: Complaint }>("/complaints", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function fetchMyComplaints() {
+  return apiFetch<{ complaints: Complaint[] }>("/complaints/mine");
+}

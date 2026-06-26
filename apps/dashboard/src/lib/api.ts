@@ -276,3 +276,38 @@ export async function quoteDeliveryFee(input: {
     }
   );
 }
+// ── Complaints ──────────────────────────────────────────────────────────────
+
+export type Complaint = {
+  id: string;
+  orderId: string;
+  customerId: string;
+  customerName?: string;
+  subject: string;
+  description: string;
+  status: "open" | "in_review" | "resolved";
+  resolutionNote?: string;
+  resolvedAt?: string;
+  category?: string;
+  orderStatus?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function fetchComplaints(status?: string) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return apiFetch<{ complaints: Complaint[] }>(`/complaints${query}`);
+}
+
+export async function markComplaintInReview(complaintId: string) {
+  return apiFetch<{ complaint: Complaint }>(`/complaints/${complaintId}/review`, {
+    method: "PATCH"
+  });
+}
+
+export async function resolveComplaint(complaintId: string, resolutionNote: string) {
+  return apiFetch<{ complaint: Complaint }>(`/complaints/${complaintId}/resolve`, {
+    method: "PATCH",
+    body: JSON.stringify({ resolutionNote })
+  });
+}
