@@ -17,6 +17,11 @@
     "build:dashboard": "npm run build -w apps/dashboard",
     "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w apps/dashboard",
     "db:migrate": "node infra/scripts/migrate.js"
+  },
+  "dependencies": {
+    "@types/react": "~19.1.10",
+    "babel-preset-expo": "^56.0.15",
+    "expo": "^54",
+    "react-native-webview": "^14.0.1"
   }
 }
-
