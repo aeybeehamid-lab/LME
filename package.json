@@ -19,6 +19,9 @@
     "db:migrate": "node infra/scripts/migrate.js"
   },
   "dependencies": {
+    "@babel/plugin-transform-class-properties": "^8.0.1",
+    "@babel/plugin-transform-private-methods": "^8.0.1",
+    "@babel/plugin-transform-private-property-in-object": "^8.0.1",
     "@types/react": "~19.1.10",
     "babel-preset-expo": "^56.0.15",
     "expo": "^54",

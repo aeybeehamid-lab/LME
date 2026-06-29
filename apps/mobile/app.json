@@ -3,9 +3,6 @@
     "name": "LME",
     "slug": "lme-mobile",
     "version": "0.1.0",
-    "entryPoint": "./index.js",
-    "sdkVersion": "54.0.0",
-    "jsEngine": "hermes",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "splash": {
